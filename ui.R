@@ -1,30 +1,31 @@
 # Define UI for data upload app ----
 ui <- fluidPage(
+
   # Sidebar layout with input and output definitions ----
   sidebarLayout(
-    
+
     # Sidebar panel for inputs ----
     sidebarPanel(
-#      style = 
-#      "position:fixed;
-#      overflow-y: scroll;
-#      width:inherit;",
-      h1(Textdata[1], style = "font-size:16px;"),
-      p(Textdata[2], style = "font-size:12px;"),
+      selectInput(
+        "languageMenu", "Taal/Language", c("Nederlands", "English")
+      ),
+
+      h1(textOutput("Text_toolname"), style = "font-size:16px;"), #ED
+      p(textOutput("Text_manual"), style = "font-size:12px;"), #ED
 
       # Input: Select a file ----
-      fileInput("file1", Textdata[3],
+      fileInput("file1", textOutput("Text_choosefile"), #ED
                 multiple = FALSE,
-                accept = c(
-#                  "text/csv",
-#                           "text/comma-separated-values,text/plain",
-                           ".csv")),
+                accept = c(".csv", ".xlsx")),
       
-      selectizeInput("ViewSelect", Textdata[4], c("select an inputfile")),
+      checkboxInput("state_bioavailability", textOutput("Text_bioAvailability"), value = TRUE), #select_bioavailability
+      
+      selectizeInput("ViewSelect", textOutput("Text_results"), c("select an inputfile")), #ED
       
       downloadButton("downloadData", "Download"),
-#max width, standaard is 4/12, nu 3/12
-width = 3
+
+      #max width, standaard is 4/12, nu 3/12
+      width = 3
     ),
     
     # Main panel for displaying outputs ----
