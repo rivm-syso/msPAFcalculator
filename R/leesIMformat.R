@@ -3,6 +3,8 @@
 #' @author jaap slootweg
 #' @description inlezen IM data, het format voor waterschappen en het informatiehuis water:
 # https://www.waterkwaliteitsportaal.nl/WKP.WebApplication/Beheer/Data/Bulkdata
+#' to test: source("R/ValidCAS.R"); source("R/leesIMformat.R"); data(Gross, Modifyers, UnitConversions, ModifierDefaults, OtherChar); 
+#' leesIMformat("tests/testthat/testdata/SampleDataMetInt.csv", National = "English")
 #' @param filename the input filename
 #' @param SSDbron source of SSD / chemical data
 #' @param muNames column names in SSDbron of SSD for acute = "Acute2.0Avg10LogMassTox.ug.L", chronic = "Chronic2.0Avg10LogMassTox.ug.L"
@@ -17,21 +19,27 @@
 leesIMformat <- function(filename,
                          SSDbron = "Gross",
                          MolMassName = "MW.g.Mol",
-                         sep = ";", dec = ",", verbose = T) {
+                         National, verbose = T) {
   #1 preparations #####
   
-  #warnings are collected in data.frame inputwarnings; code will be used for interface
+  #warnings/messages are collected in data.frame inputwarnings; code will be used for interface
+  updateDate <- format(file.info("server.R")$mtime, "%Y-%m-%d")
   inputwarnings <-
     data.frame(#making sure it exists; first line is empty
-      code = "",
-      warningText = "",
+      code = "Versionnumber",
+      warningText = paste("Version ", updateDate),
       stringsAsFactors = F)
   
   if (!("data.frame" %in% class(SSDbron))){
     SSDbron <- try(get(SSDbron))
     if (!("data.frame" %in% class(SSDbron))) {
-      inputwarnings[1 + nrow(inputwarnings), ] <-
-        c("NoSSDbron","datasource for SSD's not found")
+      if (National == "Nederlands") {
+        inputwarnings[1 + nrow(inputwarnings), ] <-
+          c("NoSSDbron","De SSD gegevens missen als bestand")
+      } else {
+        inputwarnings[1 + nrow(inputwarnings), ] <-
+          c("NoSSDbron","datasource for SSD's not found")
+      }
       return(  list(
         inputData = data.frame(),
         DataSamples = data.frame(),
@@ -40,8 +48,18 @@ leesIMformat <- function(filename,
     }
   }
   # read inputfile and split grootheden and parameters #####
-  inputData <-
-    read.csv(file = filename, sep = sep, dec = dec, stringsAsFactors = F)
+  if (endsWith(filename, ".xlsx")) {
+    inputData <- openxlsx::read.xlsx(filename)
+  } else {
+    if (National == "Nederlands") {
+      sep = ";"
+      dec = ","
+    } else {
+      sep = ","
+      dec = "."
+    }
+    inputData <- read.csv2(file = filename, sep = sep, dec = dec, stringsAsFactors = F)
+  }
   #names(inputData)
   UsedParameters <-
     c(
@@ -60,10 +78,65 @@ leesIMformat <- function(filename,
     "Alfanumeriekewaarde",
     "Hoedanigheid.code"
   )
+  Eng2UsedTranslate <- list(
+    InchiKEY = "Parameter.code",
+    CAS = "Parameter.CASnummer",
+    Unit = "Eenheid.code",
+    H2OParameter = "Grootheid.code",
+    Limit = "Limietsymbool",
+    SampleDate = "Begindatum",
+    Location = "Meetobject.lokaalID",
+    MeasuredValue = "Numeriekewaarde"
+  )
+  
+  if (National != "Nederlands" && any(names(Eng2UsedTranslate) %in% names(inputData))) {
+    #conform column names to Dutch IMformat
+    #remember to pass the conformation
+    conforms <- names(inputData)[names(inputData) %in% names(Eng2UsedTranslate)]
+    #check minimal list of columns (CAS, Location, SampleDate, MeasuredValue)
+    NeededColumns <- c("CAS", "Location", "SampleDate", "MeasuredValue", "Unit")
+    if (!all(NeededColumns %in% names(inputData))){
+      missingcolumns <- NeededColumns[!(NeededColumns %in% names(inputData))]
+      inputwarnings[1 + nrow(inputwarnings), ] <-
+        c("MissingColumns",warningText = do.call(paste,as.list(c("needed columns:", missingcolumns))))
+      inputwarnings[1 + nrow(inputwarnings), ] <-
+        c("Language Setting", "The English setting requiers a , separator and a . decimal")
+      return(  list(
+        inputData = data.frame(),
+        DataSamples = data.frame(),
+        inputwarnings = inputwarnings
+      ))
+    }
+    names(inputData) <- Eng2UsedTranslate[conforms]
+    # only to comply to IMformat
+    inputData$Resultaatdatum <- inputData$Begindatum 
+    # minimally columns
+    if (!"Parameter.code" %in% names(inputData)){
+      inputData$Parameter.code <- ""
+    }
+    if (!"Limietsymbool" %in% names(inputData)){
+      inputData$Limietsymbool <- ""
+    }
+    if (!"Grootheid.code" %in% names(inputData)){
+      inputData$Grootheid.code <- ""
+    }
+  } else conforms <- NA
+  
   if(!all(UsedParameters %in% names(inputData))){
     missingcolumns <- UsedParameters[!(UsedParameters %in% names(inputData))]
+    
     inputwarnings[1 + nrow(inputwarnings), ] <-
-      c("MissingColumns",do.call(paste,as.list(c("needed columns:", missingcolumns))))
+      c("Missende kolommen",warningText = do.call(paste,as.list(c("nodig zijn:", missingcolumns))))
+#      ifelse (National == "Nederlands",
+#      c("Missende kolommen",warningText = do.call(paste,as.list(c("nodig zijn:", missingcolumns)))),
+#      c("MissingColumns",warningText = do.call(paste,as.list(c("needed columns:", missingcolumns)))))
+      if(National == "Nederlands"){
+        inputwarnings[1 + nrow(inputwarnings), ] <-
+          c("Taal/Language","Het Nederlandse formal gebruikt ; als scheiding, en , als decimaal")
+      } else {
+        inputwarnings[1 + nrow(inputwarnings), ] <-
+          c("Taal/Language","The international format uses , as separator and . as decimal")
+      }
     return(  list(
       inputData = data.frame(),
       DataSamples = data.frame(),
@@ -107,8 +180,14 @@ leesIMformat <- function(filename,
   if(anyNA(inputData$Numeriekewaarde)){
     NumNA <- length(which(is.na(inputData$Numeriekewaarde)))
     inputData <- inputData[!is.na(inputData$Numeriekewaarde),]
-    inputwarnings[1 + nrow(inputwarnings), ] <-
-      c("NonNumeric",paste("Non Numeric Numeriekewaarde, rows deleted:", NumNA))
+    
+    if(National == "Nederlands") {
+      inputwarnings[1 + nrow(inputwarnings), ] <-
+        c("Niet-Numeriek",paste("Geen Numerieke waarde, aantal rijen overgeslagen:", NumNA))
+    } else {
+      inputwarnings[1 + nrow(inputwarnings), ] <-
+        c("NonNumeric",paste("Non Numeric Numeriekewaarde, rows deleted:", NumNA))
+    }
   }
   
   #"Hoedanigheid.code" is optional; avoid errors if it's missing
@@ -124,9 +203,15 @@ leesIMformat <- function(filename,
   outLimit <- length(which(inputData$Limietsymbool %in% c("<", ">")))
   if (outLimit > 0) {
     if (verbose)
-      inputwarnings[1 + nrow(inputwarnings), ] <-
+      if (National == "Nederlands") {
+        inputwarnings[1 + nrow(inputwarnings), ] <-
+                  c("Buiten limiet indicatie",
+                    paste(outLimit, "rijen verwijderd met Limietsymbool < or >")) 
+      } else {
+        inputwarnings[1 + nrow(inputwarnings), ] <-
         c("Out of limit",
           paste(outLimit, "number of rows removed with Limietsymbool < or >"))
+      }
     inputData <-
       inputData[!inputData$Limietsymbool %in% c("<", ">"), c(UsedParameters, OptionalParameters)]
   }
@@ -138,9 +223,15 @@ leesIMformat <- function(filename,
   #pecularities: T = Tw; Corg = DOC (nf-na filtering);
   if ("T" %in% grootheden$Grootheid.code &
       (!"Tw" %in% grootheden$Grootheid.code)) {
-    inputwarnings[1 + nrow(inputwarnings), ] <-
-      c("AquoCode.Tw",
-        "T found but no Tw; assuming all T is temperature of water (Tw)")
+    if (National == "Nederlands"){
+      inputwarnings[1 + nrow(inputwarnings), ] <-
+        c("AquoCode.Tw",
+          "T gevonden, geen Tw; alle T is gelezen als watertemperature (Tw)")
+    } else {
+      inputwarnings[1 + nrow(inputwarnings), ] <-
+        c("AquoCode.Tw",
+          "T found but no Tw; assuming all T is temperature of water (Tw)")
+    }
     inputData$Grootheid.code[inputData$Grootheid.code == "T"] <- "Tw"
   }
   if ("Corg" %in% grootheden$Parameter.code) {
@@ -148,15 +239,26 @@ leesIMformat <- function(filename,
                                endsWith(tolower(inputData$Hoedanigheid.code), suffix = "nf")] <-
       "DOC"
     if (verbose)
-      inputwarnings[1 + nrow(inputwarnings), ] <-
-        c("Corg2DOC",
-          "Corg values 'na filtering' are set as modifyer DOC")
+      if (National == "Nederlands"){
+        inputwarnings[1 + nrow(inputwarnings), ] <-
+          c("Corg2DOC",
+            "Waarden van Corg, na filtering worden als DOC gebruikt")
+      } else {
+        inputwarnings[1 + nrow(inputwarnings), ] <-
+          c("Corg2DOC",
+            "Corg values 'na filtering' are set as modifyer DOC")
+      }
   }
   if ("OS" %in% grootheden$Parameter.code) {
     inputData$Parameter.code[inputData$Parameter.code == "OS"] <- "TSS"
     if (verbose)
-      inputwarnings[1 + nrow(inputwarnings), ] <-
-        c("OS2TSS", "OS values are set as modifyer TSS")
+      if (National == "Nederlands"){
+        inputwarnings[1 + nrow(inputwarnings), ] <-
+          c("OS2TSS", "Waarden van OS worden als TSS gebruikt")
+      }  else {
+        inputwarnings[1 + nrow(inputwarnings), ] <-
+          c("OS2TSS", "OS values are set as modifyer TSS")
+      }
   }
   
   #yes, again, to make sure changes in inputData are in?
@@ -165,10 +267,10 @@ leesIMformat <- function(filename,
   # date and create SampleID from location/date ##### optional in future function?
   inputData$THEdate <-
     tryCatch(
-#      as.Date(
+      #      as.Date(
       as.character(
         inputData$Begindatum
-#        ,tryFormats = c("%d-%m-%Y", "%Y-%m-%d", "%Y/%m/%d", "%d-%m-%y", "%m-%d-%Y", "%m/%d/%Y")
+        #        ,tryFormats = c("%d-%m-%Y", "%Y-%m-%d", "%Y/%m/%d", "%d-%m-%y", "%m-%d-%Y", "%m/%d/%Y")
       ),
       error = function(cond)
         return(NA),
@@ -177,17 +279,22 @@ leesIMformat <- function(filename,
   inputData$THEdate[is.na(inputData$THEdate)] <-
     tryCatch(
       as.character(
-#    as.Date(
+        #    as.Date(
         inputData$Resultaatdatum[is.na(inputData$THEdate)]
-#      ,tryFormats = c("%d-%m-%Y", "%Y-%m-%d", "%Y/%m/%d", "%d-%m-%y", "%m-%d-%Y", "%m/%d/%Y")
-    ),
-    error = function(cond)
-      return(NA),
-    silent = T
+        #      ,tryFormats = c("%d-%m-%Y", "%Y-%m-%d", "%Y/%m/%d", "%d-%m-%y", "%m-%d-%Y", "%m/%d/%Y")
+      ),
+      error = function(cond)
+        return(NA),
+      silent = T
     )
   if (any(is.na(inputData$THEdate)))
-    inputwarnings[1 + nrow(inputwarnings), ] <-
-    c("NoDateData", "data with a missing date are removed")
+    if (National == "Nederlands"){
+      inputwarnings[1 + nrow(inputwarnings), ] <-
+        c("NoDateData", "rijen zonder datum zijn verwijderd")
+    } else {
+      inputwarnings[1 + nrow(inputwarnings), ] <-
+        c("NoDateData", "data with a missing date are removed")
+    }
   inputData <- inputData[!is.na(inputData$THEdate), ]
   #back to string to prevent mis-interpretation
   inputData$THEdate <- format(inputData$THEdate)
@@ -211,7 +318,7 @@ leesIMformat <- function(filename,
     ), ]
   
   # prep UnitConversions ##### (loaded in Globals.R)
-
+  
   #add the no-conversion needed for vectorisation
   AddUnitConversions <- data.frame(
     Unit_in = unique(UnitConversions$Unit_out),
@@ -273,14 +380,25 @@ leesIMformat <- function(filename,
       UnknownUnits <- paste("'",
                             do.call(paste,c(as.list(UnknownUnits), list(sep = "','"))),
                             "'")
-      inputwarnings[1 + nrow(inputwarnings), ] <-
-        c("Unknown",
-          paste(
-            UnknownUnits,
-            "Unit(s) not found for",
-            VarName,
-            "NOT converted"
-          ))
+      if (National == "Nederlands"){
+        inputwarnings[1 + nrow(inputwarnings), ] <-
+          c("Unknown",
+            paste(
+              UnknownUnits,
+              "Onbekende eenheid voor",
+              VarName,
+              ", NIET omgerekend"
+            ))
+      } else {
+        inputwarnings[1 + nrow(inputwarnings), ] <-
+          c("Unknown",
+            paste(
+              UnknownUnits,
+              "Unit(s) not found for",
+              VarName,
+              "NOT converted"
+            ))
+      }
       #assuming unit is correct, append
       Factors$Multiply_by[is.na(Factors$Unit_in)] <- 1
       Factors$Div_molmass[is.na(Factors$Unit_in)] <- F
@@ -301,72 +419,37 @@ leesIMformat <- function(filename,
   
   #Units of substances and  hoedanigheid N/C  nf  NF and prepare for msPAF#####
   #match substances; register with CAS but not matched
-  MatchChem <- match(inputData$Parameter.code, SSDbron$AquoCode)
-  #Some AquoCodes are NA, which gives false matches :(
-  MatchChem[is.na(SSDbron$AquoCode[MatchChem])] <- NA
+  
+  #force valid CAS, but keep the original CAS code
+  #NB the CAS variable will be the ultimate match to the SSD data
+  MatchChar2CAS <- match(inputData$Parameter.code, OtherChar$ChemCode)
+  MatchChar2CAS[is.na(MatchChar2CAS)] <- match(inputData$Parameter.CASnummer[is.na(MatchChar2CAS)], OtherChar$ChemCode)
+  inputData$CAS <- OtherChar$CAS[MatchChar2CAS] #init. with OtherChar, if present. Might be NA, might be update by:
+  CheckCASvalid <- ValidCAS(inputData$Parameter.CASnummer)
+  inputData$CAS[CheckCASvalid & is.na(MatchChar2CAS)] <- inputData$Parameter.CASnummer[CheckCASvalid& is.na(MatchChar2CAS)]
   unused <-
-    inputData[is.na(MatchChem), c("Parameter.code", "Parameter.CASnummer")]
-  NonSSDbronCAS <-
-    unique(unused[unused$Parameter.CASnummer > "" &
-                    unused$Parameter.CASnummer != "NVT", ])
-  #match on CAS; check CAS on it's checksum ValidCAS()
-  if ("CAS" %in% names(SSDbron)) {
-    is.CAS <- grep("\\d-\\d", inputData$Parameter.CASnummer)
-    NonCAS <- unique(inputData$Parameter.CASnummer[!(1:nrow(inputData) %in% is.CAS)]) 
-    #head(unique(inputData$Parameter.CASnummer[NonCAS]))
-    if (length(is.CAS) > 0) {
-      CASlike <- unique(inputData$Parameter.CASnummer[is.CAS])
-      CASlikeValid <- ValidCAS(CASlike)
-      NonCAS <- c(NonCAS,CASlike[!CASlikeValid])
-      SSDbronCAS <- NonSSDbronCAS[NonSSDbronCAS$Parameter.CASnummer %in% SSDbron$CAS,]
-      #really legal CAS missing in SSD
-      NonSSDbronCAS <- NonSSDbronCAS[!NonSSDbronCAS$Parameter.CASnummer %in% SSDbron$CAS,]
-      if (verbose & length(NonCAS) > 0) {
-        inputwarnings[1 + nrow(inputwarnings), ] <-
-          c("NonCAScode", do.call(paste, c("illegal CAS", as.list(NonCAS))))
-      }
-    } else {
-      if (verbose) {
-        inputwarnings[1 + nrow(inputwarnings), ] <-
-          c("NonCAScode", "no CAS codes at all")
-      }
-    }
-    
-    #(set) any matched on CAS additional to aquoCode
-    if (length(is.CAS) > 0) {
-      CanCalc <-
-        is.na(MatchChem) & inputData$Parameter.CASnummer %in% SSDbronCAS$Parameter.CASnummer
-      if (any(CanCalc))
-        MatchChem[CanCalc] <-
-          match(inputData$Parameter.CASnummer[CanCalc], SSDbron$CAS)
-    }
-  }
-  
-  if (nrow(NonSSDbronCAS) > 0) {
-    CASnotChemlist <- do.call(paste,as.list(unique(NonSSDbronCAS$Parameter.CASnummer)))
-    inputwarnings[1 + nrow(inputwarnings), ] <-
-      c("NAmatchedCode",
-        paste (nrow(NonSSDbronCAS), paste("substances with CAS not in chemistry list", CASnotChemlist)))
-  }
-  if (verbose) {
-    NonSSDbronNonCAS <-
-      unique(unused$Parameter.code[unused$Parameter.CASnummer == "" |
-                                     unused$Parameter.CASnummer == "NVT"])
-    if (length(NonSSDbronNonCAS) > 0) {
-      VarNotChemList <- do.call(paste, as.list(unique(NonSSDbronNonCAS)))
+    inputData[is.na(inputData$CAS), c("Parameter.code", "Parameter.CASnummer")]
+  NonSSDbronCAS <- unique(inputData$CAS[!is.na(inputData$CAS) & !inputData$CAS %in% SSDbron$CAS])
+  if (length(NonSSDbronCAS) > 0) {
+    CASnotChemlist <- do.call(paste,as.list(unique(NonSSDbronCAS)))
+    if (National == "Nederlands") {
       inputwarnings[1 + nrow(inputwarnings), ] <-
-        c("NAmatchedparameter",
-          paste (length(NonSSDbronNonCAS), paste("parameters not in chemistry list", VarNotChemList)))
+        c("NAmatchedCode",
+          paste (nrow(NonSSDbronCAS), paste("stoffen komen niet voor in de stoffenlijst", CASnotChemlist)))
+    } else {
+      inputwarnings[1 + nrow(inputwarnings), ] <-
+        c("NAmatchedCode",
+          paste (nrow(NonSSDbronCAS), paste("substances with CAS not in chemistry list", CASnotChemlist)))
     }
   }
-  #remove all non substance measurements, and from the matchChem likewise
-  inputData <- inputData[!is.na(MatchChem),]
-  MatchChem <- MatchChem[!is.na(MatchChem)]
-  
-  #update CAS and parameter code
-  inputData$Parameter.CASnummer <- SSDbron$CAS[MatchChem]
-  inputData$Parameter.code <- SSDbron$AquoCode[MatchChem]
-  
+
+  #remove all non substance measurements
+  inputData <- inputData[!is.na(inputData$CAS), ]
+  inputData <- inputData[!inputData$CAS %in% NonSSDbronCAS, ]
+
+  #Match to SSD data source
+  MatchChem <- match(inputData$CAS, SSDbron$CAS)
+    
   #unit conversion for the toxic substances
   TranslateUnits <-
     AllUnitConversions[AllUnitConversions$Unit_out == "ug/l", ] #the unit in SSD's
@@ -380,14 +463,22 @@ leesIMformat <- function(filename,
     UnknownUnits <- paste("'",
                           do.call(paste,c(as.list(UnknownUnits), list(sep = "','"))),
                           "'")
-    inputwarnings[1 + nrow(inputwarnings), ] <-
-      c("Unknown",
-        paste(
-          UnknownUnits,
-          " unknown concentration unit(s); row(s) deleted"
-        ))
+    if (National == "Nederlands") {
+      inputwarnings[1 + nrow(inputwarnings), ] <-
+        c("Unknown",
+          paste(
+            UnknownUnits,
+            "onbekende concentratie eenheid; De rijen zijn verwijderd"
+          ))
+    } else {
+      inputwarnings[1 + nrow(inputwarnings), ] <-
+        c("Unknown",
+          paste(
+            UnknownUnits,
+            " unknown concentration unit(s); row(s) deleted"
+          ))
+    }
     inputData <- inputData[!is.na(Factors$Unit_in),]
-    MatchChem <- MatchChem[!is.na(Factors$Unit_in)]
     Factors <- Factors[!is.na(Factors$Unit_in),]
   }
   inputData$Concentration <- inputData$Numeriekewaarde * Factors$Multiply_by
@@ -402,7 +493,7 @@ leesIMformat <- function(filename,
     ATOMMASSN <- 14.0067
     inputData$Concentration[AsN] <- inputData$Concentration[AsN] / ATOMMASSN * SSDbron[MatchChem[AsN],MolMassName]
   }
-  AsP <- which(inputData$Hoedanigheid.code %in% c("N", "Nnf")) # correct to molmass of whole molecule
+  AsP <- which(inputData$Hoedanigheid.code %in% c("P", "Pnf")) # correct to molmass of whole molecule
   if (length(AsP)>0) {
     ATOMMASSP <- 30.973762
     inputData$Concentration[AsP] <- inputData$Concentration[AsP] / ATOMMASSP * SSDbron[MatchChem[AsP],MolMassName]
@@ -447,16 +538,14 @@ leesIMformat <- function(filename,
       DataSamples$Cl <- ModifierDefaults$`Cl(ug/L)`[1]
   
   #for easier name handling in package
-  names(inputData)[names(inputData)=="Parameter.CASnummer"] <- "CAS"
-  names(inputData)[names(inputData)=="Parameter.code"] <- "AquoCode"
+  names(inputData)[names(inputData)=="Parameter.code"] <- "ChemCode"
+  if ("MeasuredValue" %in% names(inputData)) {
+    inputData$MeasuredValue <- NULL #free name for Concentration column
+  }
   names(inputData)[names(inputData)=="Concentration"] <- "MeasuredValue"
   inputData$PreTreatment <- ifelse(inputData$NaFiltering,"nf","")
+  attr(inputData, "conforms") <- conforms
   
-  updateDate <- format(file.info("server.R")$mtime, "%Y-%m-%d")
-  inputwarnings <- rbind(data.frame(code = "Versienummer", 
-                                    warningText = paste("Datum versie ", updateDate)), inputwarnings)
-
-
   #return
   list(
     inputData = inputData,
@@ -464,3 +553,5 @@ leesIMformat <- function(filename,
     inputwarnings = inputwarnings
   )
 }
+
+

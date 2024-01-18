@@ -5,19 +5,24 @@
 #' @param HU data.frame with HU with at least the columns CAS/AquoCode, SampleID, ...
 #' @param TMOAname name of column for toxic mode of action = "PrimaryMoA", NO 
 #' switched to AquoCode to force Response Addition
+#' @param LimitColumnNames allows a lower limit for PAF values, acute and chronic separately, 
+#' if the column != "" the PAF value is set to 0. LimitColumnNames can be either NULL or two strings
 #' @return data.frame with msPAF values
 #' @export
-HU2msPAFs <- function(HU, TMOAname = "AquoCode", groupName = "groep.fotoNL"){
-
-  if (nrow(HU) == 0) return(data.frame())
+HU2msPAFs <- function(HU, TMOAname = "CAS", groupName = "groep.fotoNL", LimitColumnNames = c("TooLowAcute", "TooLowChronic")){
   
-
-  AggMsPAF <- function(df, HUcolumName, DevColumName, l.AggrNames){
-
-    stopifnot(c(HUcolumName, DevColumName, TMOAname, l.AggrNames) %in% names(df))
+  if (nrow(HU) == 0) return(data.frame())
+  AggMsPAF <- function(df, HUcolumName, DevColumName, l.AggrNames, LimitColumnName){
+    stopifnot(c(HUcolumName, DevColumName, TMOAname, l.AggrNames, LimitColumnName) %in% names(df))
     #also aggregate TMOA
     AggTMOAnames <- c(l.AggrNames, TMOAname)
 
+    #Set PAF values that are too low to be relevant to 0; They remain in the data!
+    if (!is.null(LimitColumnName)) {
+      areTooLow <- HU[,LimitColumnName] != ""
+      HU[areTooLow, HUcolumName] <- 0
+    }
+    
     #1 HU 2 msPAF, mixed model
     SomHUTMOA <- aggregate( df[!is.na(df[,DevColumName]), HUcolumName],
                             by = df[!is.na(df[,DevColumName]), AggTMOAnames, drop = F],
@@ -30,11 +35,6 @@ HU2msPAFs <- function(HU, TMOAname = "AquoCode", groupName = "groep.fotoNL"){
                                       mean = 0,
                                       sd = AvgDevTMOA$x)
     
-    #remove substances with a too low effect i.e. < 0.01%
-    SomHUTMOA <- SomHUTMOA[SomHUTMOA$RemainFrac <= (1 - 0.01 / 100),]
-      
-    if (nrow(SomHUTMOA) == 0) return(data.frame())
-    
     #effect addition; loose TMOA
     AcumsPAF <- aggregate(SomHUTMOA$RemainFrac,
                           by = SomHUTMOA[,l.AggrNames,drop = F],
@@ -42,57 +42,69 @@ HU2msPAFs <- function(HU, TMOAname = "AquoCode", groupName = "groep.fotoNL"){
     names(AcumsPAF)[names(AcumsPAF)=="x"] <- "RemainFrac"
     #YrGemMsPAF <- aggregate(RemainFrac~X+Y+DataSource, data = msPAF, FUN = mean)
     AcumsPAF$msPAF <- 1 - AcumsPAF$RemainFrac
-    AcumsPAF
+    
+    return(AcumsPAF)
   }
 
   AllNames <- names(HU)
-
-  #stopifnot()
-  # AggrNames <- AllNames[!AllNames %in% c("CAS", "AquoCode", groupName,
-  #                                        "ActConc", "TMOA", "Dev10Log_acute",
-  #                                        "HU_acute", "PAFacute",
-  #                                        "Dev10Log_chronic","HU_Chronic","PAFchronic",
-  #                                        "Avg10Log_acute","Avg10Log_chronic" )]
-
-  #Including aggregation by UseClass
-  AcUseClasses <- AggMsPAF(HU, HUcolumName = "HU_acute",
-                           DevColumName = "Dev10Log_acute",
-                           l.AggrNames = c("SampleID", groupName))
-  #and exclude to obtain all
+  
+  #first exclude groupName to obtain the total over all groups
   AcAll <- AggMsPAF(HU, HUcolumName = "HU_acute",
-                     DevColumName = "Dev10Log_acute",
-                     l.AggrNames = c("SampleID") # not: groupName,
-                    )
-  
-  if (nrow(AcAll) == 0) return(data.frame())
-  
+                  DevColumName = "Dev10Log_acute",
+                  LimitColumnName = LimitColumnNames[1], 
+                  l.AggrNames = c("SampleID") # not: groupName,
+                          )
   AcAll[,groupName] <- "All"
-  #concat and pivot
-  AcAll <- rbind(AcAll, AcUseClasses)
   names(AcAll)[names(AcAll)=="msPAF"] <- "Acute" # ED
-  AcAllWide <- reshape(AcAll, timevar = groupName,
-                       direction = "wide", drop = c("RemainFrac"),
-                       idvar = "SampleID")
+  
+  if (!is.null(groupName)) { #might be set to NULL in the call of the outer function!
+    #Including aggregation by groupName
+    AcGroup <- AggMsPAF(HU, HUcolumName = "HU_acute",
+                            DevColumName = "Dev10Log_acute",
+                            LimitColumnName = LimitColumnNames[1], 
+                            l.AggrNames = c("SampleID", groupName)
+    )
+    names(AcGroup)[names(AcGroup)=="msPAF"] <- "Acute" # ED
+
+    #concat "All" and Chemical groups (from GroupName) and pivot to show both columns
+    AcAll <- rbind(AcAll, AcGroup)
+    AcAllWide <- reshape(AcAll, timevar = groupName,
+                         direction = "wide", drop = c("RemainFrac"),
+                         idvar = "SampleID")
+  } else { #
+    AcAllWide <- AcAll
+  }
 
   #same for chronic
-  CrUseClasses <- AggMsPAF(HU, HUcolumName = "HU_Chronic",
-                           DevColumName = "Dev10Log_chronic",
-                           l.AggrNames = c("SampleID", groupName))
+  #first exclude groupName to obtain the total over all groups
   CrAll <- AggMsPAF(HU, HUcolumName = "HU_Chronic",
                     DevColumName = "Dev10Log_chronic",
+                    LimitColumnName = ifelse(length(LimitColumnNames)>1, LimitColumnNames[2], NULL), 
                     l.AggrNames = c("SampleID") # not: groupName,
   )
   CrAll[,groupName] <- "All"
-  CrAll <- rbind(CrAll, CrUseClasses)
-  names(CrAll)[names(CrAll)=="msPAF"] <- "Chronic" #ED
-  CrAllWide <- reshape(CrAll, timevar = groupName,
-                       direction = "wide", drop = c("RemainFrac"),
-                       idvar = "SampleID")
-  
-  # kleurcodes #"Toxic presure classes"
+  names(CrAll)[names(CrAll)=="msPAF"] <- "Chronic" # ED
+
+  if (!is.null(groupName)) { #might be set to NULL in the call of the outer function!
+    #Including aggregation by groupName
+    CrGroup <- AggMsPAF(HU, HUcolumName = "HU_Chronic",
+                        DevColumName = "Dev10Log_chronic",
+                        LimitColumnName = ifelse(length(LimitColumnNames)>1, LimitColumnNames[2], NULL), 
+                        l.AggrNames = c("SampleID", groupName)
+    )
+    names(CrGroup)[names(CrGroup)=="msPAF"] <- "Chronic"    
+    #concat "All" and Chemical groups (from GroupName) and pivot to show both columns
+    CrAll <- rbind(CrAll, CrGroup)
+    CrAllWide <- reshape(CrAll, timevar = groupName,
+                         direction = "wide", drop = c("RemainFrac"),
+                         idvar = "SampleID")
+  } else {
+    CrAllWide <- CrAll
+  }
+
+  ###### colourcodes #"Toxic presure classes"
   ClAll <- merge(AcAll, CrAll,
-                 by = c("SampleID", "groep.fotoNL"),
-                 all = TRUE) #is in het long format
+                 all = TRUE) #is in the long format
   
   ClAll$Class <- mapply(function(Acute, Chronic) #x en y kunnen NA hebben
     if (is.na(Acute)) { 
@@ -116,6 +128,6 @@ HU2msPAFs <- function(HU, TMOAname = "AquoCode", groupName = "groep.fotoNL"){
   return(list(
     acute = AcAllWide,
     chronic = CrAllWide,
-    class = ClAllWide 
+    class = ClAllWide
   ))
 }

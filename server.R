@@ -14,13 +14,30 @@ server <- function(input, output, session) {
                          Gross$groep.fotoNL != "Niet meenemen",]
   FotoReplace <- DefChemFoto[!is.na(DefChemFoto$Replace.fotoNL),c("CAS", "AquoCode", "Replace.fotoNL")]
   FotoReplace$CASReplace <- DefChemFoto$CAS[match(FotoReplace$Replace.fotoNL,DefChemFoto$AquoCode)]
+
+  #add ED. Text based on selected language, not pretty but it works. Idea: this should be output of a list. In ui selection of which part of the list
+  output$Text_toolname <- renderText({
+    Textdata[Textdata$logical_name == "toolname", input$languageMenu]
+  })
+  output$Text_manual <- renderText({
+    Textdata[Textdata$logical_name == "manual", input$languageMenu]
+  })
+  output$Text_choosefile <- renderText({
+    Textdata[Textdata$logical_name == "choosefile", input$languageMenu]
+  })
+  output$Text_results <- renderText({
+    Textdata[Textdata$logical_name == "results", input$languageMenu]
+  })
+  output$Text_bioAvailability <- renderText({
+    Textdata[Textdata$logical_name == "BioAvailability", input$languageMenu]
+  })
   
   InputList <- reactive({
     req(input$file1)
     tryCatch(
       {
         Status <- "Warnings"
-        leesIMformat(input$file1$datapath, sep = sep, dec = dec)
+        leesIMformat(input$file1$datapath, National = input$languageMenu)
       },
       error = function(e) {
         # error probably (should be) in the warnings
@@ -50,12 +67,30 @@ server <- function(input, output, session) {
         InputList()$inputwarnings
       } else {
         rbind(InputList()$inputwarnings,
-              data.frame(code = "CalculationWarnings", 
-                         warningText = HUWarning))
+              data.frame(code = "CalculationWarnings", warningText = HUWarning), 
+              data.frame(code = "Bio availability", warningText = input$state_bioavailability)
+              )
       }
     } else NULL
   })
   
+
+# Bioavailability ---------------------------------------------------------
+
+#  output$select_bioavailability <- renderUI({
+#    checkboxInput('state_bioavailability', 'Bio availability?', value=TRUE)
+#  })
+  
+  # observeEvent(input$state_bioavailability, {
+  #   
+  #   print(paste0("State bioavailability: ", input$state_bioavailability))
+  #   
+  # })
+  
+  
+  
+# PAF values --------------------------------------------------------------
+
   PAFvalues <- reactive({
     req(inputwarnings)
     ret <- tryCatch(
@@ -67,7 +102,8 @@ server <- function(input, output, session) {
           muNames = c(acute = "Acute2.0Avg10LogMassTox.ug.L", chronic = "Chronic2.0Avg10LogMassTox.ug.L"),
           sigmaNames = c(acute = "Acute2.0Dev10LogMassTox.ug.L", chronic = "Chronic2.0Dev10LogMassTox.ug.L"),
           EnvData = InputList()$DataSamples,
-          aggrFUN = max
+          aggrFUN = max,
+          status_bioavailability=input$state_bioavailability,
         )
       },
       error = function(e) {
@@ -100,6 +136,7 @@ server <- function(input, output, session) {
     req(inputwarnings)
     msPAFvalues()$class
   })
+
   
   output$TableHeader <- renderText({
     req(inputwarnings)
@@ -133,7 +170,6 @@ server <- function(input, output, session) {
       addWorksheet(wb=wb, sheetName = "warnings")
       writeData(wb, sheet = "warnings", inputwarnings())
       
-
       #export list of substances in inputdata with SSD data including leen-SSD
       leenSSD <- FotoReplace$Replace.fotoNL[FotoReplace$AquoCode  %in% unique(InputList()$inputData$AquoCode) |
                                               FotoReplace$CAS %in% unique(InputList()$inputData$CAS)]
@@ -149,8 +185,7 @@ server <- function(input, output, session) {
                           "log10AvgAcute","log10AvgChronic","Devlog10Acute","Devlog10Chronic")
       addWorksheet(wb=wb, sheetName = "SSDinfo")
       writeData(wb, sheet = "SSDinfo", SSDinfo)
-      
-      
+
       addWorksheet(wb=wb, sheetName = "input data")
       writeData(wb, sheet = "input data", InputList()$inputData)
       
