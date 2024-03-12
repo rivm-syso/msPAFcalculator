@@ -31,6 +31,9 @@ server <- function(input, output, session) {
   output$Text_bioAvailability <- renderText({
     Textdata[Textdata$logical_name == "BioAvailability", input$languageMenu]
   })
+  output$BioAvailExplain <- renderText({
+    Textdata[Textdata$logical_name == "BioAvailExplain", input$languageMenu]
+  })
   
   InputList <- reactive({
     req(input$file1)
