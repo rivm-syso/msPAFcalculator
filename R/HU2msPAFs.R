@@ -43,15 +43,15 @@ HU2msPAFs <- function(HU, TMOAname = "CAS",
     AcumsPAF <- aggregate(SomHUTMOA$RemainFrac,
                           by = SomHUTMOA[,l.AggrNames,drop = F],
                           FUN = prod)
-    names(AcumsPAF)[names(AcumsPAF)=="x"] <- "RemainFrac"
+    #names(AcumsPAF)[names(AcumsPAF)=="x"] <- "RemainFrac"
     #YrGemMsPAF <- aggregate(RemainFrac~X+Y+DataSource, data = msPAF, FUN = mean)
-    AcumsPAF$msPAF <- 1 - AcumsPAF$RemainFrac
+    AcumsPAF$msPAF <- 1 - AcumsPAF$x
     
-    return(AcumsPAF)
+    return(AcumsPAF[,-which(names(AcumsPAF) == "x")])
   }
 
   AllNames <- names(HU)
-  
+
   #first exclude groupName to obtain the total over all groups
   AcAll <- AggMsPAF(HU, HUcolumName = "HU_acute",
                   DevColumName = "Dev10Log_acute",
@@ -73,7 +73,7 @@ HU2msPAFs <- function(HU, TMOAname = "CAS",
     #concat "All" and Chemical groups (from GroupName) and pivot to show both columns
     AcAll <- rbind(AcAll, AcGroup)
     AcAllWide <- reshape(AcAll, timevar = groupName,
-                         direction = "wide", drop = c("RemainFrac"),
+                         direction = "wide", 
                          idvar = "SampleID")
   } else { #
     AcAllWide <- AcAll
@@ -100,7 +100,7 @@ HU2msPAFs <- function(HU, TMOAname = "CAS",
     #concat "All" and Chemical groups (from GroupName) and pivot to show both columns
     CrAll <- rbind(CrAll, CrGroup)
     CrAllWide <- reshape(CrAll, timevar = groupName,
-                         direction = "wide", drop = c("RemainFrac"),
+                         direction = "wide",
                          idvar = "SampleID")
   } else {
     CrAllWide <- CrAll
@@ -109,7 +109,7 @@ HU2msPAFs <- function(HU, TMOAname = "CAS",
   ###### colourcodes #"Toxic presure classes"
   ClAll <- merge(AcAll, CrAll,
                  all = TRUE) #is in the long format
-  
+ 
   if (National == "Nederlands") {
     ClAll$Class <- mapply(function(Acute, Chronic) #x en y kunnen NA hebben
       if (is.na(Acute)) { 
@@ -144,7 +144,7 @@ HU2msPAFs <- function(HU, TMOAname = "CAS",
       ClAll$Acute, ClAll$Chronic)
   }
   ClAllWide <- reshape(ClAll, timevar = groupName,
-                       direction = "wide", drop = c("RemainFrac.x", "RemainFrac.y", "Acute", "Chronic"),
+                       direction = "wide", drop = c( "Acute", "Chronic"),
                        idvar = "SampleID")
   
   return(list(
