@@ -9,11 +9,15 @@
 #' if the column != "" the PAF value is set to 0. LimitColumnNames can be either NULL or two strings
 #' @return data.frame with msPAF values
 #' @export
-HU2msPAFs <- function(HU, TMOAname = "CAS", groupName = "groep.fotoNL", LimitColumnNames = c("TooLowAcute", "TooLowChronic")){
-  
+HU2msPAFs <- function(HU, TMOAname = "CAS", 
+                      groupName = "groep.fotoNL", 
+                      LimitColumnNames = c("TooLowAcute", "TooLowChronic"),
+                      National = "Nederlands"){
+
+
   if (nrow(HU) == 0) return(data.frame())
   AggMsPAF <- function(df, HUcolumName, DevColumName, l.AggrNames, LimitColumnName){
-    stopifnot(c(HUcolumName, DevColumName, TMOAname, l.AggrNames, LimitColumnName) %in% names(df))
+    stopifnot(all(c(HUcolumName, DevColumName, TMOAname, l.AggrNames, LimitColumnName) %in% names(df)))
     #also aggregate TMOA
     AggTMOAnames <- c(l.AggrNames, TMOAname)
 
@@ -39,15 +43,15 @@ HU2msPAFs <- function(HU, TMOAname = "CAS", groupName = "groep.fotoNL", LimitCol
     AcumsPAF <- aggregate(SomHUTMOA$RemainFrac,
                           by = SomHUTMOA[,l.AggrNames,drop = F],
                           FUN = prod)
-    names(AcumsPAF)[names(AcumsPAF)=="x"] <- "RemainFrac"
+    #names(AcumsPAF)[names(AcumsPAF)=="x"] <- "RemainFrac"
     #YrGemMsPAF <- aggregate(RemainFrac~X+Y+DataSource, data = msPAF, FUN = mean)
-    AcumsPAF$msPAF <- 1 - AcumsPAF$RemainFrac
+    AcumsPAF$msPAF <- 1 - AcumsPAF$x
     
-    return(AcumsPAF)
+    return(AcumsPAF[,-which(names(AcumsPAF) == "x")])
   }
 
   AllNames <- names(HU)
-  
+
   #first exclude groupName to obtain the total over all groups
   AcAll <- AggMsPAF(HU, HUcolumName = "HU_acute",
                   DevColumName = "Dev10Log_acute",
@@ -69,7 +73,7 @@ HU2msPAFs <- function(HU, TMOAname = "CAS", groupName = "groep.fotoNL", LimitCol
     #concat "All" and Chemical groups (from GroupName) and pivot to show both columns
     AcAll <- rbind(AcAll, AcGroup)
     AcAllWide <- reshape(AcAll, timevar = groupName,
-                         direction = "wide", drop = c("RemainFrac"),
+                         direction = "wide", 
                          idvar = "SampleID")
   } else { #
     AcAllWide <- AcAll
@@ -96,7 +100,7 @@ HU2msPAFs <- function(HU, TMOAname = "CAS", groupName = "groep.fotoNL", LimitCol
     #concat "All" and Chemical groups (from GroupName) and pivot to show both columns
     CrAll <- rbind(CrAll, CrGroup)
     CrAllWide <- reshape(CrAll, timevar = groupName,
-                         direction = "wide", drop = c("RemainFrac"),
+                         direction = "wide",
                          idvar = "SampleID")
   } else {
     CrAllWide <- CrAll
@@ -105,24 +109,42 @@ HU2msPAFs <- function(HU, TMOAname = "CAS", groupName = "groep.fotoNL", LimitCol
   ###### colourcodes #"Toxic presure classes"
   ClAll <- merge(AcAll, CrAll,
                  all = TRUE) #is in the long format
-  
-  ClAll$Class <- mapply(function(Acute, Chronic) #x en y kunnen NA hebben
-    if (is.na(Acute)) { 
-      if (Chronic > 0.05) {"Niet te bepalen (matig tot Zeer hoog)"} else
-        if ((Chronic <= 0.05) & (Chronic > 0.005)) {"2-Low (Gering)"} else
-#          if (Chronic <= 0.005) 
-            {"1-None (Geen)"}
-    } else
-      if (Acute > 0.10){"5-Very high (Zeer hoog)"} else 
-        if ((Acute <= 0.10) & (Acute > 0.005)){"4-High (Hoog)"} else
-          if ((Acute <= 0.005) & (is.na(Chronic))){"Niet te bepalen (Matig tot gering)"} else
-            if ((Acute <= 0.005) & (Chronic > 0.05)){"3-Moderate (Matig)"} else
-              if ((Acute <= 0.005) & (Chronic <= 0.05) & (Chronic >0.005)){"2-Low (Gering)"} else
-                if ((Acute <= 0.005) & (Chronic <= 0.005)) {"1-None (Geen)"} else "NA",
-    ClAll$Acute, ClAll$Chronic)
-  
+ 
+  if (National == "Nederlands") {
+    ClAll$Class <- mapply(function(Acute, Chronic) #x en y kunnen NA hebben
+      if (is.na(Acute)) { 
+        if (Chronic > 0.05) {"Niet te bepalen (matig tot Zeer hoog)"} else
+          if ((Chronic <= 0.05) & (Chronic > 0.005)) {"2-Gering"} else
+            #          if (Chronic <= 0.005) 
+          {"1-Geen"}
+      } else
+        if (Acute > 0.10){"5-Very high (Zeer hoog)"} else 
+          if ((Acute <= 0.10) & (Acute > 0.005)){"4-High (Hoog)"} else
+            if ((Acute <= 0.005) & (is.na(Chronic))){"Niet te bepalen (Matig tot gering)"} else
+              if ((Acute <= 0.005) & (Chronic > 0.05)){"3-Moderate (Matig)"} else
+                if ((Acute <= 0.005) & (Chronic <= 0.05) & (Chronic >0.005)){"2-Gering"} else
+                  if ((Acute <= 0.005) & (Chronic <= 0.005)) {"1-Geen"} else "NA",
+      ClAll$Acute, ClAll$Chronic)
+    
+  } else { #International 
+    
+    ClAll$Class <- mapply(function(Acute, Chronic) #x en y kunnen NA hebben
+      if (is.na(Acute)) { 
+        if (Chronic > 0.05) {"Undetermined (moderate to high)"} else
+          if ((Chronic <= 0.05) & (Chronic > 0.005)) {"2-Low (Gering)"} else
+            #          if (Chronic <= 0.005) 
+          {"1-None (Geen)"}
+      } else
+        if (Acute > 0.10){"5-Very high (Zeer hoog)"} else 
+          if ((Acute <= 0.10) & (Acute > 0.005)){"4-High (Hoog)"} else
+            if ((Acute <= 0.005) & (is.na(Chronic))){"Undetermined (low to moderate)"} else
+              if ((Acute <= 0.005) & (Chronic > 0.05)){"3-Moderate (Matig)"} else
+                if ((Acute <= 0.005) & (Chronic <= 0.05) & (Chronic >0.005)){"2-Low (Gering)"} else
+                  if ((Acute <= 0.005) & (Chronic <= 0.005)) {"1-None (Geen)"} else "NA",
+      ClAll$Acute, ClAll$Chronic)
+  }
   ClAllWide <- reshape(ClAll, timevar = groupName,
-                       direction = "wide", drop = c("RemainFrac.x", "RemainFrac.y", "Acute", "Chronic"),
+                       direction = "wide", drop = c( "Acute", "Chronic"),
                        idvar = "SampleID")
   
   return(list(

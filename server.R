@@ -66,13 +66,13 @@ server <- function(input, output, session) {
       #this triggers PAFvalues, but fast enough for now
       ExtraWarning <- PAFvalues()
       HUWarning <- attr(ExtraWarning, "warning")
-      if (is.null(HUWarning)) {
+      if (length(HUWarning)==0) {
         InputList()$inputwarnings
       } else {
         rbind(InputList()$inputwarnings,
-              data.frame(code = "CalculationWarnings", warningText = HUWarning), 
+              data.frame(code = names(HUWarning), warningText = unlist(HUWarning)), 
               data.frame(code = "Bio availability", warningText = input$state_bioavailability)
-              )
+        )
       }
     } else NULL
   })
@@ -112,17 +112,16 @@ server <- function(input, output, session) {
       error = function(e) {
         # error probably (should be) in the warnings
         errorframe <- data.frame()
-        attr(errorframe, "warning") <- "No calculation possible"
+        attr(errorframe, "warning") <- paste("No calculation possible;", e$message)
         return(errorframe)
       }
     )
-    ret
-    
+    return(ret)
   })
   
   msPAFvalues <- reactive({
     req(inputwarnings)
-    HU2msPAFs(PAFvalues())
+    HU2msPAFs(PAFvalues(), National = input$languageMenu)
   })
   
   msPAFvaluesAcute <- reactive({
@@ -193,7 +192,12 @@ server <- function(input, output, session) {
       writeData(wb, sheet = "input data", InputList()$inputData)
       
       openxlsx::addWorksheet(wb=wb, sheetName = "ModFactors")
-      openxlsx::writeData(wb, sheet = "ModFactors", InputList()$DataSamples)
+      OutputDataSamples <- InputList()$DataSamples
+      headersMatch <- match(names(OutputDataSamples), Modifyers$ModifMODname)
+      headers <- paste(names(OutputDataSamples), Modifyers$MODnameUnit[headersMatch])
+      names(OutputDataSamples) <- headers
+      
+      openxlsx::writeData(wb, sheet = "ModFactors", OutputDataSamples)
       
       addWorksheet(wb=wb, sheetName = "PAF values")
       writeData(wb, sheet = "PAF values", PAFvalues())

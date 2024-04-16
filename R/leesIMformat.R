@@ -21,7 +21,6 @@ leesIMformat <- function(filename,
                          MolMassName = "MW.g.Mol",
                          National, verbose = T) {
   #1 preparations #####
-  
   #warnings/messages are collected in data.frame inputwarnings; code will be used for interface
   updateDate <- format(file.info("server.R")$mtime, "%Y-%m-%d")
   inputwarnings <-
@@ -29,7 +28,6 @@ leesIMformat <- function(filename,
       code = "Versionnumber",
       warningText = paste("Version ", updateDate),
       stringsAsFactors = F)
-  
   if (!("data.frame" %in% class(SSDbron))){
     SSDbron <- try(get(SSDbron))
     if (!("data.frame" %in% class(SSDbron))) {
@@ -48,18 +46,23 @@ leesIMformat <- function(filename,
     }
   }
   # read inputfile and split grootheden and parameters #####
-  if (endsWith(filename, ".xlsx")) {
-    inputData <- openxlsx::read.xlsx(filename)
+  if ("data.frame" %in% class(filename)) {
+    inputData <- filename
   } else {
-    if (National == "Nederlands") {
-      sep = ";"
-      dec = ","
+    if (endsWith(filename, ".xlsx")) {
+      inputData <- openxlsx::read.xlsx(filename)
     } else {
-      sep = ","
-      dec = "."
+      if (National == "Nederlands") {
+        sep = ";"
+        dec = ","
+      } else {
+        sep = ","
+        dec = "."
+      }
+      inputData <- read.csv2(file = filename, sep = sep, dec = dec, stringsAsFactors = F)
     }
-    inputData <- read.csv2(file = filename, sep = sep, dec = dec, stringsAsFactors = F)
   }
+  
   #names(inputData)
   UsedParameters <-
     c(
@@ -79,16 +82,17 @@ leesIMformat <- function(filename,
     "Hoedanigheid.code"
   )
   Eng2UsedTranslate <- list(
-    InchiKEY = "Parameter.code",
+    Parameter.code = "Parameter.code",
     CAS = "Parameter.CASnummer",
     Unit = "Eenheid.code",
     H2OParameter = "Grootheid.code",
+    Quantification = "Hoedanigheid.code",
     Limit = "Limietsymbool",
     SampleDate = "Begindatum",
     Location = "Meetobject.lokaalID",
     MeasuredValue = "Numeriekewaarde"
   )
-  
+ 
   if (National != "Nederlands" && any(names(Eng2UsedTranslate) %in% names(inputData))) {
     #conform column names to Dutch IMformat
     #remember to pass the conformation
@@ -107,13 +111,15 @@ leesIMformat <- function(filename,
         inputwarnings = inputwarnings
       ))
     }
-    names(inputData) <- Eng2UsedTranslate[conforms]
+    names(inputData)[names(inputData) %in% names(Eng2UsedTranslate)] <- Eng2UsedTranslate[conforms]
     # only to comply to IMformat
     inputData$Resultaatdatum <- inputData$Begindatum 
     # minimally columns
     if (!"Parameter.code" %in% names(inputData)){
       inputData$Parameter.code <- ""
     }
+    inputData$Parameter.code[is.na(inputData$Parameter.code)] <- ""
+    
     if (!"Limietsymbool" %in% names(inputData)){
       inputData$Limietsymbool <- ""
     }
@@ -376,7 +382,7 @@ leesIMformat <- function(filename,
       UnknownUnits <- unique(GivenUnits)
       UnknownUnits <-
         UnknownUnits[!UnknownUnits %in% TranslateUnits$Unit_in]
-      #quote them, to make a clear massage and a single string
+      #quote them, to make a clear message and a single string
       UnknownUnits <- paste("'",
                             do.call(paste,c(as.list(UnknownUnits), list(sep = "','"))),
                             "'")
@@ -449,9 +455,6 @@ leesIMformat <- function(filename,
   inputData <- inputData[!is.na(inputData$CAS), ]
   inputData <- inputData[!inputData$CAS %in% NonSSDbronCAS, ]
 
-  #Match to SSD data source
-  MatchChem <- match(inputData$CAS, SSDbron$CAS)
-    
   #unit conversion for the toxic substances
   TranslateUnits <-
     AllUnitConversions[AllUnitConversions$Unit_out == "ug/l", ] #the unit in SSD's
@@ -483,6 +486,9 @@ leesIMformat <- function(filename,
     inputData <- inputData[!is.na(Factors$Unit_in),]
     Factors <- Factors[!is.na(Factors$Unit_in),]
   }
+  
+  #Match to SSD data source
+  MatchChem <- match(inputData$CAS, SSDbron$CAS)
   inputData$Concentration <- inputData$Numeriekewaarde * Factors$Multiply_by
   toMul <- which(Factors$Mul_molmass)
   if (length(toMul) > 0) {
