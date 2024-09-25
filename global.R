@@ -1,5 +1,5 @@
 #global.R
-load("data/Gross.rda")
+load("/shiny-data/Gross.rda")
 load("data/Modifyers.rda")
 load("data/ModifierDefaults.rda")
 load("data/UnitConversions.rda")
