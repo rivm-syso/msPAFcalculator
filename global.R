@@ -1,5 +1,8 @@
 #global.R
-load("data/Gross.rda")
+#needed for shinyportaal.rivm.nl
+load("/shiny-data/Gross.rda")
+#N.B. reset for local dev to:
+#load("data/Gross.rda")
 load("data/Modifyers.rda")
 load("data/ModifierDefaults.rda")
 load("data/UnitConversions.rda")
