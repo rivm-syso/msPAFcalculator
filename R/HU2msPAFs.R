@@ -118,11 +118,11 @@ HU2msPAFs <- function(HU, TMOAname = "CAS",
             #          if (Chronic <= 0.005) 
           {"1-Geen"}
       } else
-        if (Acute > 0.10){"5-Very high (Zeer hoog)"} else 
-          if ((Acute <= 0.10) & (Acute > 0.005)){"4-High (Hoog)"} else
+        if (Acute > 0.10){"5-Zeer hoog (Very high)"} else 
+          if ((Acute <= 0.10) & (Acute > 0.005)){"4-Hoog (High)"} else
             if ((Acute <= 0.005) & (is.na(Chronic))){"Niet te bepalen (Matig tot gering)"} else
-              if ((Acute <= 0.005) & (Chronic > 0.05)){"3-Moderate (Matig)"} else
-                if ((Acute <= 0.005) & (Chronic <= 0.05) & (Chronic >0.005)){"2-Gering"} else
+              if ((Acute <= 0.005) & (Chronic > 0.05)){"3-Matig (Moderate)"} else
+                if ((Acute <= 0.005) & (Chronic <= 0.05) & (Chronic >0.005)){"2-Gering (Low)"} else
                   if ((Acute <= 0.005) & (Chronic <= 0.005)) {"1-Geen"} else "NA",
       ClAll$Acute, ClAll$Chronic)
     
