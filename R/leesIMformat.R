@@ -432,8 +432,13 @@ leesIMformat <- function(filename,
   MatchChar2CAS[is.na(MatchChar2CAS)] <- match(inputData$Parameter.CASnummer[is.na(MatchChar2CAS)], OtherChar$ChemCode)
   inputData$CAS <- OtherChar$CAS[MatchChar2CAS] #init. with OtherChar, if present. Might be NA, might be update by:
   UniqCas <- unique(inputData$Parameter.CASnummer)
-  CheckCASvalidUniq <- ValidCAS(UniqCas)
-  CheckCASvalid <- inputData$Parameter.CASnummer %in% UniqCas[CheckCASvalidUniq]
+  UniqCas <- UniqCas[!is.na(UniqCas)]
+  if (length(UniqCas) > 0) {
+    CheckCASvalidUniq <- ValidCAS(UniqCas)
+    CheckCASvalid <- inputData$Parameter.CASnummer %in% UniqCas[CheckCASvalidUniq]
+  } else {
+    CheckCASvalid <- T
+  }
   inputData$CAS[CheckCASvalid & is.na(MatchChar2CAS)] <- inputData$Parameter.CASnummer[CheckCASvalid& is.na(MatchChar2CAS)]
   unused <-
     inputData[is.na(inputData$CAS), c("Parameter.code", "Parameter.CASnummer")]
