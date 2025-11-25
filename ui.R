@@ -11,8 +11,16 @@ ui <- fluidPage(
       ),
 
       h1(textOutput("Text_toolname"), style = "font-size:16px;"), #ED
+      tags$style(HTML("#Text_manual { white-space: pre-line; }")), #Otherwise it ignores the /n in the renderText
       p(textOutput("Text_manual"), style = "font-size:12px;"), #ED
 
+      # Choose a Gross dataset
+      selectInput(
+        "gross_choice",
+        textOutput("Text_gross"),
+        choices = gross_choices 
+        ),
+      
       # Input: Select a file ----
       fileInput("file1", textOutput("Text_choosefile"), #ED
                 multiple = FALSE,

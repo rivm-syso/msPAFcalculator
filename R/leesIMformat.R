@@ -7,6 +7,7 @@
 #' leesIMformat("tests/testthat/testdata/SampleDataMetInt.csv", National = "English")
 #' @param filename the input filename
 #' @param SSDbron source of SSD / chemical data
+#' @param gross_name name of the source of SSD / chemical data
 #' @param muNames column names in SSDbron of SSD for acute = "Acute2.0Avg10LogMassTox.ug.L", chronic = "Chronic2.0Avg10LogMassTox.ug.L"
 #' @param sigmaNames  names in SSDbron of SSD for acute = "Acute2.0Dev10LogMassTox.ug.L" chronic = "Chronic2.0Dev10LogMassTox.ug.L"
 #' @param MolMassName default MW.g.Mol
@@ -18,6 +19,7 @@
 #' @export
 leesIMformat <- function(filename,
                          SSDbron = "Gross",
+                         gross_name = "Gross",
                          MolMassName = "MW.g.Mol",
                          National, verbose = T) {
   #1 preparations #####
@@ -26,8 +28,15 @@ leesIMformat <- function(filename,
   inputwarnings <-
     data.frame(#making sure it exists; first line is empty
       code = "Versionnumber",
+      #gross_version = as.character(gross_name)[1],
       warningText = paste("Version ", updateDate),
       stringsAsFactors = F)
+
+  # Add the gross version in the output
+  inputwarnings[1 + nrow(inputwarnings), ] <- c("GrossVersion", as.character(gross_name)[1])
+  # Add the R shiny app version in the output:
+  inputwarnings[1 + nrow(inputwarnings), ] <- c("AppVersion", getAppVersion())
+  
   if (!("data.frame" %in% class(SSDbron))){
     SSDbron <- try(get(SSDbron))
     if (!("data.frame" %in% class(SSDbron))) {
@@ -45,6 +54,7 @@ leesIMformat <- function(filename,
       ))
     }
   }
+
   # read inputfile and split grootheden and parameters #####
   if ("data.frame" %in% class(filename)) {
     inputData <- filename

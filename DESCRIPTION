@@ -1,0 +1,12 @@
+Package: msPAFcalculator
+Title: msPAFcalculatore
+Version: 0.1.1
+Authors@R: 
+    person("Jaap", "Slootweg", , "jaap.slootweg@rivm.com", role = c("aut", "cre"))
+Author: Jaap Slootweg [aut, cre]
+Maintainer: Jaap Slootweg <jaap.slootweg@rivm.com>
+Description: What the package does (one paragraph).
+License: file LICENSE / GNU General Public License
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
