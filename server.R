@@ -37,7 +37,7 @@ server <- function(input, output, session) {
   output$Text_manual <- renderText({
     paste0(
       Textdata[Textdata$logical_name == "manual", input$languageMenu],
-      "\n App-version: ",getAppVersion(), # On a new line
+      "\n App version: ",getAppVersion(), # On a new line
       "\n git Head: ",git_head
     )
   })

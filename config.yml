@@ -1,0 +1,9 @@
+default:
+    NAME: shinyportal
+    data_directory: /shiny-data
+    MACHINE: CHP
+develop:
+    inherits: default
+    NAME: local_develop
+    data_directory: "./data"
+    MACHINE: local
