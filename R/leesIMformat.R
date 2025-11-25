@@ -36,6 +36,8 @@ leesIMformat <- function(filename,
   inputwarnings[1 + nrow(inputwarnings), ] <- c("GrossVersion", as.character(gross_name)[1])
   # Add the R shiny app version in the output:
   inputwarnings[1 + nrow(inputwarnings), ] <- c("AppVersion", getAppVersion())
+  # Add the Git head in the output:
+  inputwarnings[1 + nrow(inputwarnings), ] <- c("GitHead",git_head)
   
   if (!("data.frame" %in% class(SSDbron))){
     SSDbron <- try(get(SSDbron))

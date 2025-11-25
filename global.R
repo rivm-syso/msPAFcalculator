@@ -4,25 +4,28 @@ rm(list=ls())
 
 #load in the Gross data
 #needed for shinyportaal.rivm.nl
-##load("/shiny-data/Gross.rda")
 #gross_folder <- "/shiny-data/"
 #N.B. reset for local dev to:
-##load("data/Gross.rda")
 gross_folder <- "data/"
 
 #what are the gross files to load in
-gross_files <- list.files(gross_folder, pattern = "^Gross.*\\.rda$", full.names = TRUE)
-#loop over the files
-for (file in gross_files) {
-  #get the object name, based on the file name
-  obj_name <- tools::file_path_sans_ext(basename(file))
-  #load temporarily in a different envirnment, otherwise it will overwrite 'Gross'
-  e <- new.env()
-  load(file, envir = e)
-  #assign to the global anvirnment with the orrect name
-  assign(obj_name, e[[ls(e)]])
+SSDplusList <- readRDS(paste0(gross_folder,"SSDplusList.RDS"))
+for (name in names(SSDplusList)) {
+  #get the object name, based on the name
+  assign(name, SSDplusList[[name]], envir = .GlobalEnv)
 }
 gross_choices <- ls(pattern = "^Gross")
+
+#get the git head
+if (!is.null(attributes(SSDplusList)$githead)) {
+  git_head <- attributes(SSDplusList)$githead
+  if( grepl(" (HEAD) ",git_head, fixed = TRUE)){
+    git_head <- unlist(strsplit(git_head," (HEAD) ",fixed = TRUE))[2]
+  }
+} else {
+  git_head <- NULL
+}
+
 
 #load in all other data
 load("data/Modifyers.rda")
