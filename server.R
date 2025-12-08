@@ -38,7 +38,7 @@ server <- function(input, output, session) {
     paste0(
       Textdata[Textdata$logical_name == "manual", input$languageMenu],
       "\n App version: ",getAppVersion(), # On a new line
-      "\n git Head: ",git_head
+      #"\n git Head: ",git_head # Doesnt need to be in the app. Needs to be only in the warnings
     )
   })
   
