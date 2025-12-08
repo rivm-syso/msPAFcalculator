@@ -10,7 +10,8 @@ if (file.exists("config.yml")) {
   gross_folder <- conf$data_directory
 } else {
   # If you do not have the config-file, you can set the directory with this
-  gross_folder <- "/shiny-data/" #needed for shinyportaal.rivm.nl
+  gross_folder <- "data"
+  #gross_folder <- "/shiny-data/" #needed for shinyportaal.rivm.nl
   #N.B. reset for local dev to:
   #gross_folder <- "data"
 }
