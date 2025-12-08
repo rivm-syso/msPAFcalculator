@@ -1,6 +1,17 @@
 #global.R
 rm(list=ls())
 
+# Configuration Setup Explanation 
+# We use the 'config' package to manage environment-specific settings 
+# This allows us to keep code portable and avoid hard-coding environment-dependent values.
+# 
+# config.yml structure:
+#   default:
+#     DATA_DIRECTORY: /shiny-data/
+#   develop:
+#     inherits: default
+#     DATA_DIRECTORY: ./data
+#
 # Load config.yml
 # i: https://rshinydocs.rivm.nl/config.html
 # With this, we load in the directory
@@ -18,7 +29,6 @@ if (file.exists("config.yml")) {
 
 
 #load in the Gross data
-
 
 #what are the gross files to load in
 SSDplusList <- readRDS(paste0(gross_folder,"/SSDplusList.RDS"))
