@@ -41,6 +41,11 @@ server <- function(input, output, session) {
       "\n git Head: ",git_head
     )
   })
+  
+  output$Text_substances <- renderText({
+    Textdata[Textdata$logical_name == "substances", input$languageMenu]
+  })
+  
   output$Text_choosefile <- renderText({
     Textdata[Textdata$logical_name == "choosefile", input$languageMenu]
   })
@@ -52,9 +57,6 @@ server <- function(input, output, session) {
   })
   output$BioAvailExplain <- renderText({
     Textdata[Textdata$logical_name == "BioAvailExplain", input$languageMenu]
-  })
-  output$Text_gross <- renderText({
-    Textdata[Textdata$logical_name == "grossname", input$languageMenu]
   })
   
   InputList <- reactive({

@@ -17,7 +17,7 @@ ui <- fluidPage(
       # Choose a Gross dataset
       selectInput(
         "gross_choice",
-        textOutput("Text_gross"),
+        label = textOutput("Text_substances"),
         choices = gross_choices 
         ),
       
