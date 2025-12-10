@@ -1,6 +1,6 @@
 Package: msPAFcalculator
 Title: msPAFcalculatore
-Version: 0.1.1
+Version: 0.1.2
 Authors@R: 
     person("Jaap", "Slootweg", , "jaap.slootweg@rivm.com", role = c("aut", "cre"))
 Author: Jaap Slootweg [aut, cre]

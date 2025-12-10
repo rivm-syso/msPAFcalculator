@@ -24,7 +24,7 @@ ui <- fluidPage(
       # Input: Select a file ----
       fileInput("file1", textOutput("Text_choosefile"), #ED
                 multiple = FALSE,
-                accept = c(".csv", ".xlsx")),
+                accept = c(".csv", ".xlsx",".zip")),
       
       p(textOutput("BioAvailExplain"), style = "font-size:12px;"),
       checkboxInput("state_bioavailability", textOutput("Text_bioAvailability"), value = TRUE), #select_bioavailability

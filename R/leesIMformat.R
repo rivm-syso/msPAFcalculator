@@ -57,23 +57,48 @@ leesIMformat <- function(filename,
     }
   }
 
-  # read inputfile and split grootheden and parameters #####
+  # Read input file and split grootheden and parameters #####
+  
+  # Prepare sep and dec for .csv and .csv in .zip
+  if (National == "Nederlands") {
+    sep = ";"
+    dec = ","
+  } else {
+    sep = ","
+    dec = "."
+  }
+  
   if ("data.frame" %in% class(filename)) {
     inputData <- filename
   } else {
-    if (endsWith(filename, ".xlsx")) {
-      inputData <- openxlsx::read.xlsx(filename)
-    } else {
-      if (National == "Nederlands") {
-        sep = ";"
-        dec = ","
-      } else {
-        sep = ","
-        dec = "."
+    file_to_read <- filename
+    # Check for zip 
+    if (grepl("\\.zip$", tolower(file_to_read))) {
+      # In a zip file, there can be a .csv or a .xlsx
+      zipfile <- unzip(file_to_read, list = TRUE)$Name
+      
+      # .csv can be read in from the .zip directly
+      if (endsWith(tolower(zipfile), ".csv")) {
+        con <- unz(file_to_read, zipfile)
+        inputData <- read.csv2(con, sep = sep, dec = dec, stringsAsFactors = FALSE)
       }
-      inputData <- read.csv2(file = filename, sep = sep, dec = dec, stringsAsFactors = F)
+      
+      # .xlsx in the zip file needs to be extracted.
+      if (endsWith(tolower(zipfile), ".xlsx")) {
+        extracted <- unzip(file_to_read, files = zipfile[1], exdir =  tempdir())
+        file_to_read <- extracted
+      }
     }
+    
+    # Now handle based on extension
+    if (endsWith(tolower(file_to_read), ".xlsx")) {
+      inputData <- openxlsx::read.xlsx(file_to_read)
+    } 
+    if (endsWith(tolower(file_to_read), ".csv")) {
+      inputData <- read.csv2(file = file_to_read, sep = sep, dec = dec, stringsAsFactors = FALSE)
+    } 
   }
+  
   
   #names(inputData)
   UsedParameters <-
