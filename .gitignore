@@ -7,3 +7,4 @@ rsconnect
 data/Gross*.rda
 msPAFtoolExampl*.xlsx
 data/SSD*.RDS
+config.yml

@@ -1,9 +1,10 @@
 #global.R
 rm(list=ls())
 
-# Configuration Setup Explanation 
+# Configuration Setup Explanation:
 # We use the 'config' package to manage environment-specific settings 
 # This allows us to keep code portable and avoid hard-coding environment-dependent values.
+# For more RIVM-information, please see https://rshinydocs.rivm.nl/config.html
 # 
 # config.yml structure:
 #   default:
@@ -12,19 +13,26 @@ rm(list=ls())
 #     inherits: default
 #     DATA_DIRECTORY: ./data
 #
+# An example can be found under config_example.yml
+# If you want to use it, re-name it to config.yml for the best experience
+#
 # Load config.yml
-# i: https://rshinydocs.rivm.nl/config.html
 # With this, we load in the directory
 if(!requireNamespace("config")) { install.packages("config") }
 if (file.exists("config.yml")) {
   conf <- config::get()
   gross_folder <- conf$data_directory
 } else {
+  # If you do not have the config file set-up yet, you can use the config_example.yml
+  # For example: copy the config_example.yml to config.yml
+  # file.copy("config_example.yml", "config.yml", overwrite = FALSE)
+  #
+  # Or, by default, use the data folder
   # If you do not have the config-file, you can set the directory with this
-  gross_folder <- "data"
-  #gross_folder <- "/shiny-data/" #needed for shinyportaal.rivm.nl
-  #N.B. reset for local dev to:
-  #gross_folder <- "data"
+  # For local developmeny, the data folder is most useful.
+  gross_folder <- "./data"
+  # For deployment within RIVM, you can use the folder called shiny-data
+  #gross_folder <- "/shiny-data/" 
 }
 
 
