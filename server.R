@@ -52,8 +52,14 @@ server <- function(input, output, session) {
   
   #reactive, because Status
   inputwarnings <- reactive({
-    if (nrow(InputList()$inputwarnings) > 0 |
-        nrow(InputList()$inputData) > 0) {
+    req(InputList())
+    
+    # Safely extract with NULL checks
+    warnings_df <- tryCatch(InputList()$inputwarnings$warnings, error = function(e) data.frame())
+    inputData <- tryCatch(InputList()$inputData, error = function(e) data.frame())
+    
+    if (!is.null(warnings_df) && nrow(warnings_df) > 0 |
+        !is.null(inputData) && nrow(inputData) > 0) {
       updateSelectizeInput(session, "ViewSelect", choices = {
         c("Warnings" = "Input Warnings",
           "PAFtable" = "PAF values",
@@ -67,9 +73,9 @@ server <- function(input, output, session) {
       ExtraWarning <- PAFvalues()
       HUWarning <- attr(ExtraWarning, "warning")
       if (length(HUWarning)==0) {
-        InputList()$inputwarnings
+        warnings_df
       } else {
-        rbind(InputList()$inputwarnings,
+        rbind(warnings_df,
               data.frame(code = names(HUWarning), warningText = unlist(HUWarning)), 
               data.frame(code = "Bio availability", warningText = input$state_bioavailability)
         )
@@ -116,12 +122,17 @@ server <- function(input, output, session) {
         return(errorframe)
       }
     )
+    req(inputwarnings)
     return(ret)
   })
   
   msPAFvalues <- reactive({
     req(inputwarnings)
-    HU2msPAFs(PAFvalues(), National = input$languageMenu)
+    paf_result <- PAFvalues()
+    #paf_data <- paf_result$PAF
+
+    result <- HU2msPAFs(paf_result, National = input$languageMenu)
+    return(result)
   })
   
   msPAFvaluesAcute <- reactive({
@@ -151,14 +162,15 @@ server <- function(input, output, session) {
     # input$file1 will be NULL initially. After the user selects
     # and uploads a file, ... will be shown.
     
-    if(input$ViewSelect == "PAF values")
-      PAFvalues() else
-        if(input$ViewSelect == "msPAF acute")
-          msPAFvaluesAcute() else {
-            if(input$ViewSelect == "msPAF chronic") msPAFvaluesChronic() else
-              if (input$ViewSelect == "msPAF qualitative") msPAFqualitative() else
-              inputwarnings()            
-          }
+    if(input$ViewSelect == "PAF values"){
+      PAFvalues()
+    }else
+      if(input$ViewSelect == "msPAF acute")
+        msPAFvaluesAcute() else {
+          if(input$ViewSelect == "msPAF chronic") msPAFvaluesChronic() else
+            if (input$ViewSelect == "msPAF qualitative") msPAFqualitative() else
+            inputwarnings()            
+        }
   })
   
   # Downloadable csv of selected dataset ----
@@ -201,7 +213,7 @@ server <- function(input, output, session) {
       
       addWorksheet(wb=wb, sheetName = "PAF values")
       writeData(wb, sheet = "PAF values", PAFvalues())
-      
+
       addWorksheet(wb=wb, sheetName = "msPAF chronic")
       writeData(wb, sheet = "msPAF chronic", msPAFvaluesChronic())
       
