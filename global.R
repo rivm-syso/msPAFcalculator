@@ -1,16 +1,22 @@
 #global.R
 #needed for shinyportaal.rivm.nl
-load("/shiny-data/Gross.rda")
+#load("/shiny-data/Gross.rda")
 #N.B. reset for local dev to:
-#load("data/Gross.rda")
+load("data/Gross.rda")
 load("data/Modifyers.rda")
 load("data/ModifierDefaults.rda")
 load("data/UnitConversions.rda")
 Textdata <- read.csv2("data/Textfile.csv")
 load("data/OtherChar.rda") #translate InchiKEY, AquoCode or alternative CAS to CAS
-source("R/HU_Calc2.R")
-source("R/HU2msPAFs.R")
-source("R/ValidCAS.R")
-source("R/leesIMformat.R")
+#source("R/HU_Calc2.R")
+#source("R/HU2msPAFs.R")
+#source("R/ValidCAS.R")
+#source("R/leesIMformat.R")
 sep <- ";"
 dec <- ","
+#install.packages("devtools")
+#devtools::install_github("rivm-syso/msPAF")
+library(msPAF)
+library(dplyr)
+library(shiny)
+library(openxlsx)

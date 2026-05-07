@@ -52,8 +52,14 @@ server <- function(input, output, session) {
   
   #reactive, because Status
   inputwarnings <- reactive({
-    if (nrow(InputList()$inputwarnings) > 0 |
-        nrow(InputList()$inputData) > 0) {
+    req(InputList())
+    
+    # Safely extract with NULL checks
+    warnings_df <- tryCatch(InputList()$inputwarnings$warnings, error = function(e) data.frame())
+    inputData <- tryCatch(InputList()$inputData, error = function(e) data.frame())
+    
+    if (!is.null(warnings_df) && nrow(warnings_df) > 0 |
+        !is.null(inputData) && nrow(inputData) > 0) {
       updateSelectizeInput(session, "ViewSelect", choices = {
         c("Warnings" = "Input Warnings",
           "PAFtable" = "PAF values",
@@ -67,9 +73,9 @@ server <- function(input, output, session) {
       ExtraWarning <- PAFvalues()
       HUWarning <- attr(ExtraWarning, "warning")
       if (length(HUWarning)==0) {
-        InputList()$inputwarnings
+        warnings_df
       } else {
-        rbind(InputList()$inputwarnings,
+        rbind(warnings_df,
               data.frame(code = names(HUWarning), warningText = unlist(HUWarning)), 
               data.frame(code = "Bio availability", warningText = input$state_bioavailability)
         )
@@ -98,16 +104,18 @@ server <- function(input, output, session) {
     req(inputwarnings)
     ret <- tryCatch(
       {
-        HU_Calc2(
+        ret <- HU_Calc2(
           ToHU = InputList()$inputData,
           ChemData = DefChemFoto,
           ChemReplace = FotoReplace,
           muNames = c(acute = "Acute2.0Avg10LogMassTox.ug.L", chronic = "Chronic2.0Avg10LogMassTox.ug.L"),
           sigmaNames = c(acute = "Acute2.0Dev10LogMassTox.ug.L", chronic = "Chronic2.0Dev10LogMassTox.ug.L"),
           EnvData = InputList()$DataSamples,
-          aggrFUN = max,
+          #aggrFUN = max,
+          TooLowLimit = NULL,
           status_bioavailability=input$state_bioavailability,
         )
+        return(ret)
       },
       error = function(e) {
         # error probably (should be) in the warnings
@@ -116,12 +124,17 @@ server <- function(input, output, session) {
         return(errorframe)
       }
     )
+    req(inputwarnings)
+
     return(ret)
   })
   
   msPAFvalues <- reactive({
     req(inputwarnings)
-    HU2msPAFs(PAFvalues(), National = input$languageMenu)
+    paf_result <- PAFvalues()
+    agg_result <- aggre_HU_Calc2(paf_result$PAF, aggrFUN = max, TooLowLimit = 0.0001) 
+    result <- HU2msPAFs(agg_result$PAF, National = input$languageMenu)
+    return(result)
   })
   
   msPAFvaluesAcute <- reactive({
@@ -150,15 +163,28 @@ server <- function(input, output, session) {
   output$oneTable <- renderTable({
     # input$file1 will be NULL initially. After the user selects
     # and uploads a file, ... will be shown.
+    paf_result <- PAFvalues()
+    PAF <- paf_result$PAF
+    # Add the excluded rows during HUcalc
+    excluded_PAF <- paf_result$excluded_rows
+    excluded_PAF_overlap <- excluded_PAF[,colnames(excluded_PAF)[colnames(excluded_PAF)%in%colnames(PAF)]]
+    # And excluded rows during leesIMformat
+    #excluded_leesIM <- InputList()$excludedData
+    #excluded_leesIM_overlap <- excluded_leesIM[,colnames(excluded_leesIM)[colnames(excluded_leesIM)%in%colnames(PAF)]]
+    library(dplyr)
+    PAF_full <- bind_rows(PAF, excluded_PAF_overlap)
+    #PAF_full <- bind_rows(PAF_full, excluded_leesIM_overlap)
     
-    if(input$ViewSelect == "PAF values")
-      PAFvalues() else
-        if(input$ViewSelect == "msPAF acute")
-          msPAFvaluesAcute() else {
-            if(input$ViewSelect == "msPAF chronic") msPAFvaluesChronic() else
-              if (input$ViewSelect == "msPAF qualitative") msPAFqualitative() else
-              inputwarnings()            
-          }
+    if(input$ViewSelect == "PAF values"){
+      #PAFvalues()$PAF
+      PAF_full
+    }else
+      if(input$ViewSelect == "msPAF acute")
+        msPAFvaluesAcute() else {
+          if(input$ViewSelect == "msPAF chronic") msPAFvaluesChronic() else
+            if (input$ViewSelect == "msPAF qualitative") msPAFqualitative() else
+            inputwarnings()            
+        }
   })
   
   # Downloadable csv of selected dataset ----
@@ -200,8 +226,8 @@ server <- function(input, output, session) {
       openxlsx::writeData(wb, sheet = "ModFactors", OutputDataSamples)
       
       addWorksheet(wb=wb, sheetName = "PAF values")
-      writeData(wb, sheet = "PAF values", PAFvalues())
-      
+      writeData(wb, sheet = "PAF values", PAFvalues()$PAF)
+
       addWorksheet(wb=wb, sheetName = "msPAF chronic")
       writeData(wb, sheet = "msPAF chronic", msPAFvaluesChronic())
       
