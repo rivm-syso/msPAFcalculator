@@ -132,7 +132,6 @@ server <- function(input, output, session) {
   msPAFvalues <- reactive({
     req(inputwarnings)
     paf_result <- PAFvalues()
-    #paf_data <- paf_result$PAF
     agg_result <- aggre_HU_Calc2(paf_result$PAF, aggrFUN = max, TooLowLimit = 0.0001) 
     result <- HU2msPAFs(agg_result$PAF, National = input$languageMenu)
     return(result)
@@ -164,9 +163,21 @@ server <- function(input, output, session) {
   output$oneTable <- renderTable({
     # input$file1 will be NULL initially. After the user selects
     # and uploads a file, ... will be shown.
+    paf_result <- PAFvalues()
+    PAF <- paf_result$PAF
+    # Add the excluded rows during HUcalc
+    excluded_PAF <- paf_result$excluded_rows
+    excluded_PAF_overlap <- excluded_PAF[,colnames(excluded_PAF)[colnames(excluded_PAF)%in%colnames(PAF)]]
+    # And excluded rows during leesIMformat
+    #excluded_leesIM <- InputList()$excludedData
+    #excluded_leesIM_overlap <- excluded_leesIM[,colnames(excluded_leesIM)[colnames(excluded_leesIM)%in%colnames(PAF)]]
+    library(dplyr)
+    PAF_full <- bind_rows(PAF, excluded_PAF_overlap)
+    #PAF_full <- bind_rows(PAF_full, excluded_leesIM_overlap)
     
     if(input$ViewSelect == "PAF values"){
-      PAFvalues()$PAF
+      #PAFvalues()$PAF
+      PAF_full
     }else
       if(input$ViewSelect == "msPAF acute")
         msPAFvaluesAcute() else {
