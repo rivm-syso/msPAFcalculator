@@ -131,7 +131,6 @@ server <- function(input, output, session) {
   
   msPAFvalues <- reactive({
     req(inputwarnings)
-    ww <<- PAFvalues()
     paf_result <- PAFvalues()
     #paf_data <- paf_result$PAF
     agg_result <- aggre_HU_Calc2(paf_result$PAF, aggrFUN = max, TooLowLimit = 0.0001) 
