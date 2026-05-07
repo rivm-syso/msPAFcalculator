@@ -104,16 +104,18 @@ server <- function(input, output, session) {
     req(inputwarnings)
     ret <- tryCatch(
       {
-        HU_Calc2(
+        ret <- HU_Calc2(
           ToHU = InputList()$inputData,
           ChemData = DefChemFoto,
           ChemReplace = FotoReplace,
           muNames = c(acute = "Acute2.0Avg10LogMassTox.ug.L", chronic = "Chronic2.0Avg10LogMassTox.ug.L"),
           sigmaNames = c(acute = "Acute2.0Dev10LogMassTox.ug.L", chronic = "Chronic2.0Dev10LogMassTox.ug.L"),
           EnvData = InputList()$DataSamples,
-          aggrFUN = max,
+          #aggrFUN = max,
+          TooLowLimit = NULL,
           status_bioavailability=input$state_bioavailability,
         )
+        return(ret)
       },
       error = function(e) {
         # error probably (should be) in the warnings
@@ -123,15 +125,17 @@ server <- function(input, output, session) {
       }
     )
     req(inputwarnings)
+
     return(ret)
   })
   
   msPAFvalues <- reactive({
     req(inputwarnings)
+    ww <<- PAFvalues()
     paf_result <- PAFvalues()
     #paf_data <- paf_result$PAF
-
-    result <- HU2msPAFs(paf_result, National = input$languageMenu)
+    agg_result <- aggre_HU_Calc2(paf_result$PAF, aggrFUN = max, TooLowLimit = 0.0001) 
+    result <- HU2msPAFs(agg_result$PAF, National = input$languageMenu)
     return(result)
   })
   
@@ -163,7 +167,7 @@ server <- function(input, output, session) {
     # and uploads a file, ... will be shown.
     
     if(input$ViewSelect == "PAF values"){
-      PAFvalues()
+      PAFvalues()$PAF
     }else
       if(input$ViewSelect == "msPAF acute")
         msPAFvaluesAcute() else {
@@ -212,7 +216,7 @@ server <- function(input, output, session) {
       openxlsx::writeData(wb, sheet = "ModFactors", OutputDataSamples)
       
       addWorksheet(wb=wb, sheetName = "PAF values")
-      writeData(wb, sheet = "PAF values", PAFvalues())
+      writeData(wb, sheet = "PAF values", PAFvalues()$PAF)
 
       addWorksheet(wb=wb, sheetName = "msPAF chronic")
       writeData(wb, sheet = "msPAF chronic", msPAFvaluesChronic())
