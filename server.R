@@ -10,18 +10,40 @@ library(openxlsx)
 # Define server logic to read selected file ----
 server <- function(input, output, session) {
   
-  DefChemFoto <- Gross[Gross$ABCquality %in% c("A","B") &
-                         Gross$groep.fotoNL != "Niet meenemen",]
-  FotoReplace <- DefChemFoto[!is.na(DefChemFoto$Replace.fotoNL),c("CAS", "AquoCode", "Replace.fotoNL")]
-  FotoReplace$CASReplace <- DefChemFoto$CAS[match(FotoReplace$Replace.fotoNL,DefChemFoto$AquoCode)]
-
+  # load in the selected gross data set reactively from the global envirnment
+  selectedGross <- reactive({
+    get(input$gross_choice, envir = .GlobalEnv)
+  })
+  
+  #DefChemFoto <- Gross[Gross$ABCquality %in% c("A","B") &
+  #                       Gross$groep.fotoNL != "Niet meenemen",]
+  #FotoReplace <- DefChemFoto[!is.na(DefChemFoto$Replace.fotoNL),c("CAS", "AquoCode", "Replace.fotoNL")]
+  #FotoReplace$CASReplace <- DefChemFoto$CAS[match(FotoReplace$Replace.fotoNL,DefChemFoto$AquoCode)]
+  DefChemFoto <- reactive({
+    df <- selectedGross()
+    df[df$ABCquality %in% c("A","B") & df$groep.fotoNL != "Niet meenemen", ]
+  })
+  FotoReplace <- reactive({
+    df <- DefChemFoto()
+    fr <- df[!is.na(df$Replace.fotoNL), c("CAS", "AquoCode", "Replace.fotoNL")]
+    fr$CASReplace <- df$CAS[match(fr$Replace.fotoNL, df$AquoCode)]
+    fr
+  })
   #add ED. Text based on selected language, not pretty but it works. Idea: this should be output of a list. In ui selection of which part of the list
   output$Text_toolname <- renderText({
-    Textdata[Textdata$logical_name == "toolname", input$languageMenu]
+    paste0(
+      Textdata[Textdata$logical_name == "manual", input$languageMenu],
+      "\n", get_package_version_string("msPAFcalculator",  National = input$languageMenu) #, # On a new line
+    )
   })
-  output$Text_manual <- renderText({
-    Textdata[Textdata$logical_name == "manual", input$languageMenu]
+  
+  output$Text_substances <- renderText({
+    Textdata[Textdata$logical_name == "substances", input$languageMenu]
   })
+  
+  #output$Text_manual <- renderText({
+  #  Textdata[Textdata$logical_name == "manual", input$languageMenu]
+  #})
   output$Text_choosefile <- renderText({
     Textdata[Textdata$logical_name == "choosefile", input$languageMenu]
   })
@@ -40,7 +62,28 @@ server <- function(input, output, session) {
     tryCatch(
       {
         Status <- "Warnings"
-        leesIMformat(input$file1$datapath, National = input$languageMenu)
+        data <- leesIMformat(input$file1$datapath, National = input$languageMenu,
+                     SSDbron = selectedGross(),gross_name = input$gross_choice
+                     )
+        # Add the additional info in warnings
+        data$inputwarnings$warnings
+        data$inputwarnings$add( if(input$languageMenu == "Nederlands"){ "Git versie" }else{ "Git version" }, 
+                               nl_text = paste0("Git head van de SSDs: ", git_head), 
+                               en_text =  paste0("Git head of the SSDs: ", git_head), 
+                               National = input$languageMenu
+                               )
+        data$inputwarnings$add(if(input$languageMenu == "Nederlands"){ "Versienummer" }else{ "Versionumber" }, 
+                               nl_text = get_package_version_string("msPAFcalculator",  National = input$languageMenu), 
+                               en_text =  get_package_version_string("msPAFcalculator",  National = input$languageMenu), 
+                               National = input$languageMenu
+                               )
+        updateDate <- format(file.info("server.R")$mtime, "%Y-%m-%d")
+        data$inputwarnings$add("Update", 
+                               nl_text = paste0("Laatste app update: ", updateDate), 
+                               en_text = paste0("Last app update: ", updateDate), 
+                               National = input$languageMenu
+                               )
+        return(data)
       },
       error = function(e) {
         # error probably (should be) in the warnings
@@ -106,8 +149,8 @@ server <- function(input, output, session) {
       {
         ret <- HU_Calc2(
           ToHU = InputList()$inputData,
-          ChemData = DefChemFoto,
-          ChemReplace = FotoReplace,
+          ChemData = DefChemFoto(),
+          ChemReplace = FotoReplace(),
           muNames = c(acute = "Acute2.0Avg10LogMassTox.ug.L", chronic = "Chronic2.0Avg10LogMassTox.ug.L"),
           sigmaNames = c(acute = "Acute2.0Dev10LogMassTox.ug.L", chronic = "Chronic2.0Dev10LogMassTox.ug.L"),
           EnvData = InputList()$DataSamples,
@@ -199,13 +242,13 @@ server <- function(input, output, session) {
       writeData(wb, sheet = "warnings", inputwarnings())
       
       #export list of substances in inputdata with SSD data including leen-SSD
-      leenSSD <- FotoReplace$Replace.fotoNL[FotoReplace$AquoCode  %in% unique(InputList()$inputData$AquoCode) |
-                                              FotoReplace$CAS %in% unique(InputList()$inputData$CAS)]
+      leenSSD <- FotoReplace()$Replace.fotoNL[FotoReplace()$AquoCode  %in% unique(InputList()$inputData$AquoCode) |
+                                              FotoReplace()$CAS %in% unique(InputList()$inputData$CAS)]
       leenSSD <- leenSSD[!is.na(leenSSD)]
       
-      SSDinfo <- DefChemFoto[DefChemFoto$AquoCode %in% unique(InputList()$inputData$AquoCode) |
-                               DefChemFoto$CAS %in% unique(InputList()$inputData$CAS) | 
-                             DefChemFoto$AquoCode %in% leenSSD,
+      SSDinfo <- DefChemFot(o)[DefChemFoto()$AquoCode %in% unique(InputList()$inputData$AquoCode) |
+                               DefChemFoto()$CAS %in% unique(InputList()$inputData$CAS) | 
+                             DefChemFoto()$AquoCode %in% leenSSD,
                        c("AquoCode",	"CAS", "Replace.fotoNL","ABCquality","groep.fotoNL",
                          "Acute2.0Avg10LogMassTox.ug.L","Chronic2.0Avg10LogMassTox.ug.L",
                          "Acute2.0Dev10LogMassTox.ug.L","Chronic2.0Dev10LogMassTox.ug.L")]
