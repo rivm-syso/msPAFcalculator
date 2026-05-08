@@ -33,7 +33,7 @@ server <- function(input, output, session) {
   output$Text_toolname <- renderText({
     paste0(
       Textdata[Textdata$logical_name == "manual", input$languageMenu],
-      "\n", get_package_version_string("msPAFcalculator",  National = input$languageMenu) #, # On a new line
+      "\n \n ", get_package_version_string("msPAFcalculator",  National = input$languageMenu) #, # On a new line
     )
   })
   
@@ -66,7 +66,6 @@ server <- function(input, output, session) {
                      SSDbron = selectedGross(),gross_name = input$gross_choice
                      )
         # Add the additional info in warnings
-        data$inputwarnings$warnings
         data$inputwarnings$add( if(input$languageMenu == "Nederlands"){ "Git versie" }else{ "Git version" }, 
                                nl_text = paste0("Git head van de SSDs: ", git_head), 
                                en_text =  paste0("Git head of the SSDs: ", git_head), 
