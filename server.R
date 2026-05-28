@@ -36,7 +36,16 @@ server <- function(input, output, session) {
   output$Text_toolname <- renderText({
     paste0(
       Textdata[Textdata$logical_name == "manual", input$languageMenu],
-      "\n \n ", get_package_version_string("msPAFcalculator",  National = input$languageMenu) #, # On a new line
+      #Git version
+      "\n \n ", if("msPAFcalculator"%in%rownames(installed.packages())){
+        get_package_version_string("msPAFcalculator",  National = input$languageMenu)
+        }else{
+          if(!is.null(app_git_head)){
+          paste0("msPAFcalculator app git commit: ",app_git_head)
+          }else{
+            ""
+          }
+        } #, # On a new line
     )
   })
   
@@ -78,8 +87,12 @@ server <- function(input, output, session) {
                                National = input$languageMenu
                                )
         data$inputwarnings$add(if(input$languageMenu == "Nederlands"){ "Versienummer" }else{ "Versionumber" }, 
-                               nl_text = get_package_version_string("msPAFcalculator",  National = input$languageMenu), 
-                               en_text =  get_package_version_string("msPAFcalculator",  National = input$languageMenu), 
+                               nl_text = ifelse(!is.null(app_git_head),
+                                               paste0("msPAFcalculator app git commit: ", app_git_head),
+                                               get_package_version_string("msPAFcalculator",  National = input$languageMenu)),
+                               en_text = ifelse(!is.null(app_git_head),
+                                               paste0("msPAFcalculator app git commit: ", app_git_head),
+                                               get_package_version_string("msPAFcalculator",  National = input$languageMenu)),
                                National = input$languageMenu
                                )
         updateDate <- format(file.info("server.R")$mtime, "%Y-%m-%d")

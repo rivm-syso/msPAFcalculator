@@ -57,6 +57,13 @@ if (!is.null(attributes(SSDplusList)$githead)) {
   git_head <- NULL
 }
 
+#get the git head for the app itself
+app_git_head <- tryCatch({
+  system("git rev-parse --short HEAD", intern = TRUE)
+}, error = function(e) {
+  NULL
+})
+
 
 #load in all other data
 #load("data/Gross.rda")
