@@ -1,5 +1,4 @@
 rm(list=ls())
-
 # Configuration Setup Explanation:
 # We use the 'config' package to manage environment-specific settings 
 # This allows us to keep code portable and avoid hard-coding environment-dependent values.
@@ -39,11 +38,14 @@ if (file.exists("config.yml")) {
 
 #what are the gross files to load in
 SSDplusList <- readRDS(paste0(gross_folder,"/SSDplusList.RDS"))
-for (name in names(SSDplusList)) {
-  #get the object name, based on the name
-  assign(name, SSDplusList[[name]], envir = .GlobalEnv)
-}
+#for (name in names(SSDplusList)) {
+#  #get the object name, based on the name
+#  assign(name, SSDplusList[[name]], envir = .GlobalEnv)
+#}
+#Temporarily use  msPAF::Gross2025
+Gross2025 <-  msPAF::Gross2025
 gross_choices <- ls(pattern = "^Gross")
+
 
 #get the git head
 if (!is.null(attributes(SSDplusList)$githead)) {

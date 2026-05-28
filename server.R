@@ -12,22 +12,25 @@ server <- function(input, output, session) {
   
   # load in the selected gross data set reactively from the global envirnment
   selectedGross <- reactive({
-    get(input$gross_choice, envir = .GlobalEnv)
+    SSDbron <- get(input$gross_choice, envir = .GlobalEnv)
+    # Handle case where SSDbron is a list of dataframes
+    if ("list" %in% class(SSDbron) && !"data.frame" %in% class(SSDbron)) {
+      SSDbron <- SSDbron[[input$gross_choice]]
+    }
+    SSDbron
   })
   
   #DefChemFoto <- Gross[Gross$ABCquality %in% c("A","B") &
   #                       Gross$groep.fotoNL != "Niet meenemen",]
-  #FotoReplace <- DefChemFoto[!is.na(DefChemFoto$Replace.fotoNL),c("CAS", "AquoCode", "Replace.fotoNL")]
-  #FotoReplace$CASReplace <- DefChemFoto$CAS[match(FotoReplace$Replace.fotoNL,DefChemFoto$AquoCode)]
   DefChemFoto <- reactive({
     df <- selectedGross()
-    df[df$ABCquality %in% c("A","B") & df$groep.fotoNL != "Niet meenemen", ]
-  })
-  FotoReplace <- reactive({
-    df <- DefChemFoto()
-    fr <- df[!is.na(df$Replace.fotoNL), c("CAS", "AquoCode", "Replace.fotoNL")]
-    fr$CASReplace <- df$CAS[match(fr$Replace.fotoNL, df$AquoCode)]
-    fr
+    idx <- which(df$ABCquality %in% c("A","B") & df$groep.fotoNL != "Niet meenemen")
+    result <- df[idx, , drop = FALSE]
+    # Add substance_key if not present (required by CleanFase2)
+    if (!"substance_key" %in% names(result)) {
+      result$substance_key <- paste0("CAS:", result$CAS)
+    }
+    result
   })
   #add ED. Text based on selected language, not pretty but it works. Idea: this should be output of a list. In ui selection of which part of the list
   output$Text_toolname <- renderText({
@@ -65,6 +68,9 @@ server <- function(input, output, session) {
         data <- leesIMformat(input$file1$datapath, National = input$languageMenu,
                      SSDbron = selectedGross(),gross_name = input$gross_choice
                      )
+        # Convert inputwarnings dataframe back to R6 object so we can add warnings
+        data$inputwarnings <- InputWarnings$new(data$inputwarnings)
+        
         # Add the additional info in warnings
         data$inputwarnings$add( if(input$languageMenu == "Nederlands"){ "Git versie" }else{ "Git version" }, 
                                nl_text = paste0("Git head van de SSDs: ", git_head), 
@@ -111,7 +117,14 @@ server <- function(input, output, session) {
       },
       selected = "Input Warnings"
       )
-      #this triggers PAFvalues, but fast enough for now
+      
+      # Accumulate warnings from CleanFase2
+      cleanWarnings <- tryCatch(CleanedData()$inputwarnings, error = function(e) data.frame())
+      if (!is.null(cleanWarnings) && nrow(cleanWarnings) > 0) {
+        warnings_df <- rbind(warnings_df, cleanWarnings)
+      }
+      
+      # Accumulate warnings from PAFvalues
       ExtraWarning <- PAFvalues()
       HUWarning <- attr(ExtraWarning, "warning")
       if (length(HUWarning)==0) {
@@ -125,7 +138,6 @@ server <- function(input, output, session) {
     } else NULL
   })
   
-
 # Bioavailability ---------------------------------------------------------
 
 #  output$select_bioavailability <- renderUI({
@@ -139,23 +151,34 @@ server <- function(input, output, session) {
   # })
   
   
+  # Step 2: Clean data ------------------------------------------------------
+
+  CleanedData <- reactive({
+    req(InputList())
+    CleanFase2(
+      inputData = InputList()$inputData,
+      SSDsubstanceData = DefChemFoto(),
+      init_inputwarnings = InputList()$inputwarnings$warnings,
+      National = input$languageMenu
+    )
+  })
   
-# PAF values --------------------------------------------------------------
+  
+# Step 3: Calculate PAF values --------------------------------------------
 
   PAFvalues <- reactive({
-    req(inputwarnings)
+    req(CleanedData())
     ret <- tryCatch(
       {
         ret <- HU_Calc2(
-          ToHU = InputList()$inputData,
+          ToHU = CleanedData()$inputData,
           ChemData = DefChemFoto(),
-          ChemReplace = FotoReplace(),
           muNames = c(acute = "Acute2.0Avg10LogMassTox.ug.L", chronic = "Chronic2.0Avg10LogMassTox.ug.L"),
           sigmaNames = c(acute = "Acute2.0Dev10LogMassTox.ug.L", chronic = "Chronic2.0Dev10LogMassTox.ug.L"),
           EnvData = InputList()$DataSamples,
-          #aggrFUN = max,
-          TooLowLimit = NULL,
-          status_bioavailability=input$state_bioavailability,
+          National = input$languageMenu,
+          status_bioavailability = input$state_bioavailability,
+          TooLowLimit = NULL
         )
         return(ret)
       },
@@ -166,17 +189,40 @@ server <- function(input, output, session) {
         return(errorframe)
       }
     )
-    req(inputwarnings)
 
     return(ret)
   })
   
+  
+# Step 4: Calculate zero PAFs ---------------------------------------------
+
+  ZeroPAFs <- reactive({
+    req(PAFvalues())
+    zeroPAFs(
+      asIM = InputList(),
+      ChemData = DefChemFoto(),
+      HU_results = PAFvalues()
+    )
+  })
+  
+  
+# Step 5: Aggregate to msPAF ----------------------------------------------
+
   msPAFvalues <- reactive({
-    req(inputwarnings)
-    paf_result <- PAFvalues()
-    agg_result <- aggre_HU_Calc2(paf_result$PAF, aggrFUN = max, TooLowLimit = 0.0001) 
-    result <- HU2msPAFs(agg_result$PAF, National = input$languageMenu)
-    return(result)
+    req(PAFvalues(), ZeroPAFs())
+    
+    agg_result <- aggre_HU_Calc2(
+      CalcedHU = PAFvalues()$PAF,
+      ChemData = DefChemFoto(),
+      zeros_PAF = ZeroPAFs(),
+      aggrFUN = max,
+      agg_jaar = FALSE,
+      National = input$languageMenu
+    )
+    
+    #result <- HU2msPAFs(agg_result$PAF, National = input$languageMenu)
+    #return(result)
+    return(agg_result)
   })
   
   msPAFvaluesAcute <- reactive({
@@ -240,18 +286,13 @@ server <- function(input, output, session) {
       addWorksheet(wb=wb, sheetName = "warnings")
       writeData(wb, sheet = "warnings", inputwarnings())
       
-      #export list of substances in inputdata with SSD data including leen-SSD
-      leenSSD <- FotoReplace()$Replace.fotoNL[FotoReplace()$AquoCode  %in% unique(InputList()$inputData$AquoCode) |
-                                              FotoReplace()$CAS %in% unique(InputList()$inputData$CAS)]
-      leenSSD <- leenSSD[!is.na(leenSSD)]
-      
-      SSDinfo <- DefChemFot(o)[DefChemFoto()$AquoCode %in% unique(InputList()$inputData$AquoCode) |
-                               DefChemFoto()$CAS %in% unique(InputList()$inputData$CAS) | 
-                             DefChemFoto()$AquoCode %in% leenSSD,
+      # Export list of substances in inputdata with SSD data
+      SSDinfo <- DefChemFoto()[DefChemFoto()$AquoCode %in% unique(InputList()$inputData$AquoCode) |
+                               DefChemFoto()$CAS %in% unique(InputList()$inputData$CAS),
                        c("AquoCode",	"CAS", "Replace.fotoNL","ABCquality","groep.fotoNL",
                          "Acute2.0Avg10LogMassTox.ug.L","Chronic2.0Avg10LogMassTox.ug.L",
                          "Acute2.0Dev10LogMassTox.ug.L","Chronic2.0Dev10LogMassTox.ug.L")]
-      names(SSDinfo) <- c("AquoCode",	"CAS", "LeenSSD","SSDquality","stofgroep",
+      names(SSDinfo) <- c("AquoCode",	"CAS", "Replace.fotoNL","SSDquality","stofgroep",
                           "log10AvgAcute","log10AvgChronic","Devlog10Acute","Devlog10Chronic")
       addWorksheet(wb=wb, sheetName = "SSDinfo")
       writeData(wb, sheet = "SSDinfo", SSDinfo)
