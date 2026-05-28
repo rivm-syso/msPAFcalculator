@@ -127,14 +127,14 @@ server <- function(input, output, session) {
       # Accumulate warnings from PAFvalues
       ExtraWarning <- PAFvalues()
       HUWarning <- attr(ExtraWarning, "warning")
-      if (length(HUWarning)==0) {
-        warnings_df
-      } else {
-        rbind(warnings_df,
-              data.frame(code = names(HUWarning), warningText = unlist(HUWarning)), 
-              data.frame(code = "Bio availability", warningText = input$state_bioavailability)
-        )
+      if (length(HUWarning) > 0) {
+        warnings_df <- rbind(warnings_df,
+                             data.frame(code = names(HUWarning), warningText = unlist(HUWarning)), 
+                             data.frame(code = "Bio availability", warningText = input$state_bioavailability))
       }
+      
+      # Remove duplicate warnings
+      unique(warnings_df)
     } else NULL
   })
   
