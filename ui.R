@@ -41,7 +41,9 @@ ui <- fluidPage(
     mainPanel(
       textOutput("TableHeader"),
       # Output: Data file ----
-      DTOutput("oneTable")
+      withSpinner(
+        DTOutput("oneTable")
+      )
       
     )
     
