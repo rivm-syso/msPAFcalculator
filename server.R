@@ -291,9 +291,14 @@ server <- function(input, output, session) {
         PAF_full, 
         rownames = FALSE,
         filter = "top",
+        extensions = 'Scroller',
         options = list(dom = 't',
                        pageLength =-1,
-                       order = list(list(2, 'asc')) # = Meetobject.lokaal.ID #DT counts starting from 0
+                       order = list(list(2, 'asc')), # = Meetobject.lokaal.ID #DT counts starting from 0
+                       deferRender = TRUE,
+                       scrollY = 700,
+                       scrollX = TRUE,
+                       scroller = TRUE
                        )
         )
       
@@ -340,7 +345,7 @@ server <- function(input, output, session) {
             }
         }
     }
-  })
+  }, server = TRUE)
   
   # Downloadable csv of selected dataset ----
   output$downloadData <- downloadHandler(
