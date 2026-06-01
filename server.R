@@ -261,7 +261,7 @@ server <- function(input, output, session) {
            "")
   })
   
-  output$oneTable <- renderTable({
+  output$oneTable <- renderDT({
     # input$file1 will be NULL initially. After the user selects
     # and uploads a file, ... will be shown.
     paf_result <- PAFvalues()
@@ -278,14 +278,69 @@ server <- function(input, output, session) {
     
     if(input$ViewSelect == "PAF values"){
       #PAFvalues()$PAF
-      PAF_full
-    }else
-      if(input$ViewSelect == "msPAF acute")
-        msPAFvaluesAcute() else {
-          if(input$ViewSelect == "msPAF chronic") msPAFvaluesChronic() else
-            if (input$ViewSelect == "msPAF qualitative") msPAFqualitative() else
-            inputwarnings()            
+      #PAF_full
+      xx<<-PAF_full
+      PAF_full$substance_key <- as.factor(PAF_full$substance_key)
+      PAF_full$UseClass <- as.factor(PAF_full$UseClass)
+      PAF_full$Meetobject.lokaalID <- as.factor(PAF_full$Meetobject.lokaalID)
+      PAF_full$groep.fotoNL <- as.factor(PAF_full$groep.fotoNL)
+      PAF_full$PrimaryMoA <- as.factor(PAF_full$PrimaryMoA)
+      PAF_full$SampleID <- as.factor(PAF_full$SampleID)
+      PAF_full$ExclusionReason <- as.factor(PAF_full$ExclusionReason)
+      #PAF_full$THEdate<-as.Date(as.numeric(PAF_full$THEdate), origin = "1899-12-30")
+      datatable(
+        PAF_full, 
+        rownames = FALSE,
+        filter = "top",
+        options = list(dom = 't',
+                       pageLength =-1,
+                       order = list(list(2, 'asc')) # = Meetobject.lokaal.ID #DT counts starting from 0
+                       )
+        )
+      
+    }else{
+      if(input$ViewSelect == "msPAF acute"){
+        datatable(
+          msPAFvaluesAcute(),
+          rownames = FALSE,
+          #filter = "top",
+          options = list(dom = 't',
+                         pageLength =-1
+          )
+        )
+        }else {
+          if(input$ViewSelect == "msPAF chronic"){
+            datatable(
+              msPAFvaluesChronic(),
+              rownames = FALSE,
+              #filter = "top",
+              options = list(dom = 't',
+                             pageLength =-1
+              )
+            )
+            }else{
+            if (input$ViewSelect == "msPAF qualitative"){
+              datatable(
+                msPAFqualitative(),
+                rownames = FALSE,
+                #filter = "top",
+                options = list(dom = 't',
+                               pageLength =-1
+                )
+              )
+              }else{
+                datatable(
+                  inputwarnings(),
+                  rownames = FALSE,
+                  #filter = "top",
+                  options = list(dom = 't',
+                                 pageLength =-1
+                  )
+                )
+              }
+            }
         }
+    }
   })
   
   # Downloadable csv of selected dataset ----

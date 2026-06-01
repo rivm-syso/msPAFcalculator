@@ -41,7 +41,7 @@ ui <- fluidPage(
     mainPanel(
       textOutput("TableHeader"),
       # Output: Data file ----
-      tableOutput("oneTable")
+      DTOutput("oneTable")
       
     )
     
