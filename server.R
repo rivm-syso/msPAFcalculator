@@ -308,8 +308,13 @@ server <- function(input, output, session) {
           msPAFvaluesAcute(),
           rownames = FALSE,
           #filter = "top",
+          extensions = 'Scroller',
           options = list(dom = 't',
-                         pageLength =-1
+                         pageLength =-1,
+                         deferRender = TRUE,
+                         scrollY = 700,
+                         scrollX = TRUE,
+                         scroller = TRUE
           )
         )
         }else {
@@ -317,9 +322,14 @@ server <- function(input, output, session) {
             datatable(
               msPAFvaluesChronic(),
               rownames = FALSE,
+              extensions = 'Scroller',
               #filter = "top",
               options = list(dom = 't',
-                             pageLength =-1
+                             pageLength =-1,
+                             deferRender = TRUE,
+                             scrollY = 700,
+                             scrollX = TRUE,
+                             scroller = TRUE
               )
             )
             }else{
@@ -328,8 +338,13 @@ server <- function(input, output, session) {
                 msPAFqualitative(),
                 rownames = FALSE,
                 #filter = "top",
+                extensions = 'Scroller',
                 options = list(dom = 't',
-                               pageLength =-1
+                               pageLength =-1,
+                               deferRender = TRUE,
+                               scrollY = 700,
+                               scrollX = TRUE,
+                               scroller = TRUE
                 )
               )
               }else{
