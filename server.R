@@ -279,7 +279,6 @@ server <- function(input, output, session) {
     if(input$ViewSelect == "PAF values"){
       #PAFvalues()$PAF
       #PAF_full
-      xx<<-PAF_full
       PAF_full$substance_key <- as.factor(PAF_full$substance_key)
       PAF_full$UseClass <- as.factor(PAF_full$UseClass)
       PAF_full$Meetobject.lokaalID <- as.factor(PAF_full$Meetobject.lokaalID)
