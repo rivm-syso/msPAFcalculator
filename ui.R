@@ -45,5 +45,12 @@ ui <- fluidPage(
       
     )
     
+  ),
+  
+  # Fix for iframe scroll issue - hide file input to prevent focus scroll
+  tags$script(
+    HTML(
+      'setTimeout(() => $(".shiny-bound-input[type=\'file\']").css("all","unset").css("display", "none"), 750);'
+    )
   )
 )
