@@ -85,3 +85,6 @@ library(msPAF)
 library(dplyr)
 library(shiny)
 library(openxlsx)
+library(DT)
+library(shinycssloaders)
+options(shiny.maxRequestSize = 100*1024^2)  # Set max upload size to 100 MB
