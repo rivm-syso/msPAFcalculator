@@ -1,5 +1,8 @@
 # Define UI for data upload app ----
 ui <- fluidPage(
+  
+  # Enable shinyjs
+  shinyjs::useShinyjs(),
 
   # Sidebar layout with input and output definitions ----
   sidebarLayout(
@@ -40,6 +43,7 @@ ui <- fluidPage(
     # Main panel for displaying outputs ----
     mainPanel(
       textOutput("TableHeader"),
+      uiOutput("filterControl"),
       # Output: Data file ----
       withSpinner(
         DTOutput("oneTable")

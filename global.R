@@ -87,4 +87,5 @@ library(shiny)
 library(openxlsx)
 library(DT)
 library(shinycssloaders)
+library(shinyjs)
 options(shiny.maxRequestSize = 100*1024^2)  # Set max upload size to 100 MB

@@ -1,9 +1,3 @@
-# serve the ui 
-# more documentation needed; reactives dependance?
-
-library(shiny)
-library(openxlsx)
-
 #unfortunately, not on CRAN (no guaranteed maintainance)
 #library(msPAFnoch2) #contains all major routines, calculations etc.
 
@@ -32,6 +26,35 @@ server <- function(input, output, session) {
     }
     result
   })
+  
+  # Track language changes to invalidate old data
+  dataLanguage <- reactiveVal(NULL)
+  
+  # Reset file input when language changes to prevent mismatches
+  observeEvent(input$languageMenu, {
+    if (!is.null(input$file1)) {
+      showNotification(
+        if(input$languageMenu == "Nederlands") {
+          "Taal gewijzigd. Upload uw bestand opnieuw."
+        } else {
+          "Language changed. Please re-upload your file."
+        },
+        type = "warning",
+        duration = 10
+      )
+      # Reset the file input
+      shinyjs::reset("file1")
+      dataLanguage(NULL)  # Invalidate data language
+    }
+  }, ignoreInit = TRUE)
+  
+  # Track the language when file is uploaded
+  observeEvent(input$file1, {
+    if (!is.null(input$file1)) {
+      dataLanguage(input$languageMenu)
+    }
+  })
+  
   #add ED. Text based on selected language, not pretty but it works. Idea: this should be output of a list. In ui selection of which part of the list
   output$Text_toolname <- renderText({
     paste0(
@@ -120,9 +143,8 @@ server <- function(input, output, session) {
                                                  paste0("msPAFcalculator app git commit: ", app_git_head),
                                                  ifelse(file.exists("/app/DESCRIPTION"),
                                                         paste0("msPAFcalculator version: ", read.dcf("/app/DESCRIPTION")[1, "Version"]),
-                                                       paste0("msPAFcalculator app git commit: ", app_git_head)
-                                                ),
-                                               get_package_version_string("msPAFcalculator",  National = input$languageMenu)),
+                                                        get_package_version_string("msPAFcalculator",  National = input$languageMenu)
+                                                 )),
                                National = input$languageMenu
                                )
         updateDate <- format(file.info("server.R")$mtime, "%Y-%m-%d")
@@ -144,6 +166,7 @@ server <- function(input, output, session) {
   #reactive, because Status
   inputwarnings <- reactive({
     req(InputList())
+    req(dataLanguage() == input$languageMenu)  # Ensure data matches current language
     
     # Safely extract with NULL checks
     warnings_df <- tryCatch(InputList()$inputwarnings$warnings, error = function(e) data.frame())
@@ -198,6 +221,7 @@ server <- function(input, output, session) {
 
   CleanedData <- reactive({
     req(InputList())
+    req(dataLanguage() == input$languageMenu)  # Ensure data matches current language
     CleanFase2(
       inputData = InputList()$inputData,
       SSDsubstanceData = DefChemFoto(),
@@ -291,6 +315,24 @@ server <- function(input, output, session) {
            "")
   })
   
+  output$filterControl <- renderUI({
+    req(inputwarnings)
+    if(input$ViewSelect == "PAF values") {
+      input_text <- ifelse(input$languageMenu == "Nederlands", "Toon concentratie waardes:", "Show concentration values:")
+      input_choices1 <- ifelse(input$languageMenu == "Nederlands", "Alle waardes", "All values")
+      input_choices2 <- ifelse(input$languageMenu == "Nederlands", "Sluit nul-waardes uit", "Exclude zeros")
+      
+      # Create named vector dynamically
+      choices_vec <- c("all", "nonzero")
+      names(choices_vec) <- c(input_choices1, input_choices2)
+      
+      radioButtons("filterZeros", input_text,
+                   choices = choices_vec,
+                   selected = "all",
+                   inline = TRUE)
+    }
+  })
+  
   output$oneTable <- renderDT({
     # input$file1 will be NULL initially. After the user selects
     # and uploads a file, ... will be shown.
@@ -305,10 +347,15 @@ server <- function(input, output, session) {
     library(dplyr)
     PAF_full <- bind_rows(PAF, excluded_PAF_overlap)
     #PAF_full <- bind_rows(PAF_full, excluded_leesIM_overlap)
-    
     if(input$ViewSelect == "PAF values"){
       #PAFvalues()$PAF
       #PAF_full
+      
+      # Filter based on radio button selection
+      if(!is.null(input$filterZeros) && input$filterZeros == "nonzero") {
+        PAF_full <- PAF_full[PAF_full$Concentration != 0, ]
+      }
+      
       PAF_full$substance_key <- as.factor(PAF_full$substance_key)
       PAF_full$UseClass <- as.factor(PAF_full$UseClass)
       PAF_full$Meetobject.lokaalID <- as.factor(PAF_full$Meetobject.lokaalID)
