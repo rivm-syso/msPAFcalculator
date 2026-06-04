@@ -296,10 +296,13 @@ server <- function(input, output, session) {
       PAF_full$UseClass <- as.factor(PAF_full$UseClass)
       PAF_full$Meetobject.lokaalID <- as.factor(PAF_full$Meetobject.lokaalID)
       PAF_full$groep.fotoNL <- as.factor(PAF_full$groep.fotoNL)
-      PAF_full$PrimaryMoA <- as.factor(PAF_full$PrimaryMoA)
+      #PAF_full$PrimaryMoA <- as.factor(PAF_full$PrimaryMoA)
       PAF_full$SampleID <- as.factor(PAF_full$SampleID)
       PAF_full$ExclusionReason <- as.factor(PAF_full$ExclusionReason)
       #PAF_full$THEdate<-as.Date(as.numeric(PAF_full$THEdate), origin = "1899-12-30")
+      if("PrimaryMoA" %in% colnames(PAF_full)){
+        PAF_full <- PAF_full[,-which(colnames(PAF_full) == "PrimaryMoA")]
+      }
       datatable(
         PAF_full, 
         rownames = FALSE,
@@ -409,7 +412,11 @@ server <- function(input, output, session) {
       openxlsx::writeData(wb, sheet = "ModFactors", OutputDataSamples)
       
       addWorksheet(wb=wb, sheetName = "PAF values")
-      writeData(wb, sheet = "PAF values", PAFvalues()$PAF)
+      PAF_full <- PAFvalues()$PAF
+      if("PrimaryMoA" %in% colnames(PAF_full)){
+        PAF_full <- PAF_full[,-which(colnames(PAF_full) == "PrimaryMoA")]
+      }
+      writeData(wb, sheet = "PAF values", PAF_full)
 
       addWorksheet(wb=wb, sheetName = "msPAF chronic")
       writeData(wb, sheet = "msPAF chronic", msPAFvaluesChronic())
