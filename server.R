@@ -121,7 +121,7 @@ server <- function(input, output, session) {
                                SSDbron = selectedGross(),gross_name = input$gross_choice
           )
         }
-          
+
 
         # Convert inputwarnings dataframe back to R6 object so we can add warnings
         data$inputwarnings <- InputWarnings$new(data$inputwarnings)
@@ -367,6 +367,10 @@ server <- function(input, output, session) {
       if("PrimaryMoA" %in% colnames(PAF_full)){
         PAF_full <- PAF_full[,-which(colnames(PAF_full) == "PrimaryMoA")]
       }
+      #fix dates
+      if("THEdate"%in%colnames(PAF_full)){
+        PAF_full$THEdate<-as.Date(as.numeric(PAF_full$THEdate), origin = "1899-12-30")
+      }
       datatable(
         PAF_full, 
         rownames = FALSE,
@@ -464,7 +468,18 @@ server <- function(input, output, session) {
       writeData(wb, sheet = "SSDinfo", SSDinfo)
 
       addWorksheet(wb=wb, sheetName = "input data")
-      writeData(wb, sheet = "input data", InputList()$inputData)
+      input_data<-InputList()$inputData
+      #fix dates
+      if("Resultaatdatum"%in%colnames(input_data)){
+        input_data$Resultaatdatum<-as.Date(as.numeric(input_data$Resultaatdatum), origin = "1899-12-30")
+      }
+      if("Begindatum"%in%colnames(input_data)){
+        input_data$Begindatum<-as.Date(as.numeric(input_data$Begindatum), origin = "1899-12-30")
+      }
+      if("THEdate"%in%colnames(input_data)){
+        input_data$THEdate<-as.Date(as.numeric(input_data$THEdate), origin = "1899-12-30")
+      }
+      writeData(wb, sheet = "input data", input_data)
       
       openxlsx::addWorksheet(wb=wb, sheetName = "ModFactors")
       OutputDataSamples <- InputList()$DataSamples
@@ -478,6 +493,10 @@ server <- function(input, output, session) {
       PAF_full <- PAFvalues()$PAF
       if("PrimaryMoA" %in% colnames(PAF_full)){
         PAF_full <- PAF_full[,-which(colnames(PAF_full) == "PrimaryMoA")]
+      }
+      #fix dates
+      if("THEdate"%in%colnames(PAF_full)){
+        PAF_full$THEdate<-as.Date(as.numeric(PAF_full$THEdate), origin = "1899-12-30")
       }
       writeData(wb, sheet = "PAF values", PAF_full)
 
