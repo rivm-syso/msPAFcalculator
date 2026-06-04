@@ -43,7 +43,13 @@ server <- function(input, output, session) {
           if(!is.null(app_git_head)){
           paste0("msPAFcalculator app git commit: ",app_git_head)
           }else{
-            ""
+            if(file.exists("/app/DESCRIPTION")){
+              desc <- read.dcf("/app/DESCRIPTION")
+              package_version <- desc[1, "Version"]
+              paste0("msPAFcalculator version: ", package_version)
+            }else{
+              ""
+            }
           }
         } #, # On a new line
     )
@@ -88,10 +94,16 @@ server <- function(input, output, session) {
                                )
         data$inputwarnings$add(if(input$languageMenu == "Nederlands"){ "Versienummer" }else{ "Versionumber" }, 
                                nl_text = ifelse(!is.null(app_git_head),
-                                               paste0("msPAFcalculator app git commit: ", app_git_head),
+                                               ifelse(file.exists("/app/DESCRIPTION"),
+                                                      paste0("msPAFcalculator versie: ", read.dcf("/app/DESCRIPTION")[1, "Version"]),
+                                                      paste0("msPAFcalculator app git commit: ", app_git_head)
+                                                      ),
                                                get_package_version_string("msPAFcalculator",  National = input$languageMenu)),
                                en_text = ifelse(!is.null(app_git_head),
-                                               paste0("msPAFcalculator app git commit: ", app_git_head),
+                                                ifelse(file.exists("/app/DESCRIPTION"),
+                                                       paste0("msPAFcalculator version: ", read.dcf("/app/DESCRIPTION")[1, "Version"]),
+                                                       paste0("msPAFcalculator app git commit: ", app_git_head)
+                                                ),
                                                get_package_version_string("msPAFcalculator",  National = input$languageMenu)),
                                National = input$languageMenu
                                )
