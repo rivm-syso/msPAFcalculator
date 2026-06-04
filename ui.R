@@ -40,6 +40,7 @@ ui <- fluidPage(
     # Main panel for displaying outputs ----
     mainPanel(
       textOutput("TableHeader"),
+      uiOutput("filterControl"),
       # Output: Data file ----
       withSpinner(
         DTOutput("oneTable")
