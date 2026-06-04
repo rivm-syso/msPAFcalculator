@@ -80,9 +80,26 @@ server <- function(input, output, session) {
     tryCatch(
       {
         Status <- "Warnings"
-        data <- leesIMformat(input$file1$datapath, National = input$languageMenu,
-                     SSDbron = selectedGross(),gross_name = input$gross_choice
-                     )
+        file_to_read <- input$file1$datapath
+        if (grepl("\\.zip$", tolower(file_to_read))) { # if it is a zip, it can be 1 or multiple files
+          zipfile <- unzip(file_to_read, list = TRUE)$Name
+          if (length(zipfile)>1){
+            # If there are multiple files, we need IMformatMultiple
+            data <- IMformatMultiple(zipFile = file_to_read, National = input$languageMenu,
+                                 SSDbron = selectedGross()
+            )
+          } else { #if it is 1 file, use the default leesIMformat
+            data <- leesIMformat(file_to_read, National = input$languageMenu,
+                                 SSDbron = selectedGross(),gross_name = input$gross_choice
+            )
+          }
+        } else{
+          data <- leesIMformat(file_to_read, National = input$languageMenu,
+                               SSDbron = selectedGross(),gross_name = input$gross_choice
+          )
+        }
+          
+
         # Convert inputwarnings dataframe back to R6 object so we can add warnings
         data$inputwarnings <- InputWarnings$new(data$inputwarnings)
         
