@@ -458,16 +458,37 @@ server <- function(input, output, session) {
       writeData(wb, sheet = "warnings", inputwarnings())
       
       # Export list of substances in inputdata with SSD data
-      xx<<-DefChemFoto()
-      yy<<-InputList()
-      SSDinfo <- DefChemFoto()[DefChemFoto()$substance_key %in% unique(InputList()$inputData$substance_key),
-                       c("AquoCode",	"CAS", "Replace.fotoNL","ABCquality","groep.fotoNL",
-                         "Acute2.0Avg10LogMassTox.ug.L","Chronic2.0Avg10LogMassTox.ug.L",
-                         "Acute2.0Dev10LogMassTox.ug.L","Chronic2.0Dev10LogMassTox.ug.L")]
-      names(SSDinfo) <- c("AquoCode",	"CAS", "Replace.fotoNL","SSDquality","stofgroep",
+      
+      #SSDinfo <- DefChemFoto()[DefChemFoto()$substance_key %in% unique(InputList()$inputData$substance_key),
+      #                 c("AquoCode",	"CAS", "Replace.fotoNL","ABCquality","groep.fotoNL",
+      #                   "Acute2.0Avg10LogMassTox.ug.L","Chronic2.0Avg10LogMassTox.ug.L",
+      #                   "Acute2.0Dev10LogMassTox.ug.L","Chronic2.0Dev10LogMassTox.ug.L")]
+      #names(SSDinfo) <- c("AquoCode",	"CAS", "Replace.fotoNL","SSDquality","stofgroep",
+      #                    "log10AvgAcute","log10AvgChronic","Devlog10Acute","Devlog10Chronic")
+      input_list<-InputList()$inputData
+      def_chem_foto<-DefChemFoto()
+      # Distinct input
+      distinct_input <- input_list |>
+        select(Parameter.code, Parameter.CASnummer, substance_key) |>
+        distinct()
+      # Join
+      SSDinfo2 <- distinct_input |>
+        inner_join(
+          def_chem_foto,
+          by = "substance_key"
+        )
+      # Subset
+      SSDinfo2 <- SSDinfo2[SSDinfo2$substance_key %in% unique(input_list$substance_key),]
+      # Select columns
+      SSDinfo2 <- SSDinfo2[ 
+                               c("Parameter.code",	"Parameter.CASnummer", "substance_key","ABCquality","groep.fotoNL",
+                                 "Acute2.0Avg10LogMassTox.ug.L","Chronic2.0Avg10LogMassTox.ug.L",
+                                 "Acute2.0Dev10LogMassTox.ug.L","Chronic2.0Dev10LogMassTox.ug.L")]
+      names(SSDinfo2) <- c("code",	"CASnummer", "substance_key","SSDquality","stofgroep",
                           "log10AvgAcute","log10AvgChronic","Devlog10Acute","Devlog10Chronic")
       addWorksheet(wb=wb, sheetName = "SSDinfo")
-      writeData(wb, sheet = "SSDinfo", SSDinfo)
+      #writeData(wb, sheet = "SSDinfo", SSDinfo)
+      writeData(wb, sheet = "SSDinfo", SSDinfo2)
 
       addWorksheet(wb=wb, sheetName = "input data")
       input_data<-InputList()$inputData
