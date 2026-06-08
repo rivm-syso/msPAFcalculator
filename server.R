@@ -458,6 +458,8 @@ server <- function(input, output, session) {
       writeData(wb, sheet = "warnings", inputwarnings())
       
       # Export list of substances in inputdata with SSD data
+      xx<<-DefChemFoto()
+      yy<<-InputList()
       SSDinfo <- DefChemFoto()[DefChemFoto()$substance_key %in% unique(InputList()$inputData$substance_key),
                        c("AquoCode",	"CAS", "Replace.fotoNL","ABCquality","groep.fotoNL",
                          "Acute2.0Avg10LogMassTox.ug.L","Chronic2.0Avg10LogMassTox.ug.L",
